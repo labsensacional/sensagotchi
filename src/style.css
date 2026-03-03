@@ -1,0 +1,458 @@
+/* ============================================================
+   TAMAGOTCHI HEDONISTA — mobile-first UI
+   ============================================================ */
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+    --bg:         #0a0a14;
+    --border:     rgba(255,255,255,0.12);
+    --text:       rgba(255,255,255,0.9);
+    --text-muted: rgba(255,255,255,0.45);
+    --radius:     12px;
+}
+
+html, body {
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+}
+
+/* ── Layout ──────────────────────────────────────────────── */
+
+#app {
+    display: flex;
+    flex-direction: column;
+    height: 100dvh;   /* dynamic viewport height for mobile browsers */
+}
+
+/* ── Avatar section (top ~60%) ───────────────────────────── */
+
+#avatar-section {
+    flex: 0 0 60%;
+    position: relative;
+    overflow: hidden;
+    background: var(--bg);
+}
+
+#bg {
+    position: absolute;
+    inset: 0;
+    background-size: cover;
+    background-position: center;
+    background-image: url('backgrounds/default.jpg');
+    filter: brightness(0.55) saturate(1.2);
+    transition: background-image 0.7s ease;
+}
+
+/* ── HUD (top-right corner) ──────────────────────────────── */
+
+#hud {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    z-index: 10;
+}
+
+.hud-row {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.hud-label {
+    font-size: 11px;
+    width: 14px;
+    text-align: center;
+    filter: drop-shadow(0 1px 2px rgba(0,0,0,0.8));
+    position: relative;
+    cursor: default;
+}
+
+.hud-label[data-tip]:hover::after {
+    content: attr(data-tip);
+    position: absolute;
+    right: calc(100% + 6px);
+    top: 50%;
+    transform: translateY(-50%);
+    background: rgba(10,10,20,0.88);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 5px;
+    padding: 2px 7px;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    color: rgba(255,255,255,0.85);
+    white-space: nowrap;
+    pointer-events: none;
+    z-index: 20;
+}
+
+.hud-track {
+    width: 52px;
+    height: 5px;
+    background: rgba(0,0,0,0.5);
+    border-radius: 3px;
+    overflow: hidden;
+    border: 1px solid rgba(255,255,255,0.15);
+}
+
+.hud-fill {
+    height: 100%;
+    background: var(--color, white);
+    border-radius: 3px;
+    transition: width 0.6s ease;
+    width: 0%;
+}
+
+/* ── HUD detail panel (hover) ────────────────────────────── */
+
+#hud-detail {
+    position: absolute;
+    top: 0;
+    right: calc(100% + 8px);
+    background: rgba(10, 10, 20, 0.88);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 10px;
+    padding: 10px 12px;
+    width: 190px;
+    backdrop-filter: blur(6px);
+    pointer-events: none;
+    opacity: 0;
+    transform: translateX(4px);
+    transition: opacity 0.18s ease, transform 0.18s ease;
+}
+
+#hud:has(.hud-track:hover) #hud-detail,
+#hud:has(#hud-detail:hover) #hud-detail {
+    opacity: 1;
+    transform: translateX(0);
+}
+
+.detail-group { margin-bottom: 8px; }
+.detail-group:last-child { margin-bottom: 0; }
+
+.detail-group-label {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.10em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.35);
+    margin-bottom: 4px;
+}
+
+.detail-row {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin-bottom: 3px;
+}
+
+.detail-key {
+    font-size: 10px;
+    color: rgba(255,255,255,0.55);
+    width: 58px;
+    flex-shrink: 0;
+    text-align: right;
+}
+
+.detail-bar {
+    flex: 1;
+    height: 4px;
+    background: rgba(255,255,255,0.10);
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.detail-fill {
+    height: 100%;
+    background: var(--dc, rgba(255,255,255,0.45));
+    border-radius: 2px;
+    transition: width 0.5s ease;
+}
+
+.detail-val {
+    font-size: 10px;
+    color: rgba(255,255,255,0.6);
+    width: 22px;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+/* ── Avatar ──────────────────────────────────────────────── */
+
+.avatar-container {
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 320px;
+    height: 320px;
+    z-index: 5;
+    pointer-events: none;
+}
+
+#avatar-canvas-wrap {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Scale the p5 canvas (drawn at 480×480) down to fit the container */
+#avatar-canvas-wrap canvas {
+    display: block !important;
+    width: 320px !important;
+    height: 320px !important;
+    background: transparent !important;
+}
+
+/* ── CSS Animations ──────────────────────────────────────── */
+
+@keyframes idle {
+    0%, 100% { transform: translateX(-50%) translateY(0px);    }
+    50%       { transform: translateX(-50%) translateY(-4px);  }
+}
+@keyframes sway {
+    0%, 100% { transform: translateX(-50%) rotate(-3deg); }
+    50%       { transform: translateX(-50%) rotate( 3deg); }
+}
+@keyframes bounce {
+    0%, 100% { transform: translateX(-50%) translateY(0px);   }
+    40%       { transform: translateX(-50%) translateY(-14px); }
+    60%       { transform: translateX(-50%) translateY(-10px); }
+}
+@keyframes shake {
+    0%, 100% { transform: translateX(-50%) rotate(0deg);            }
+    15%       { transform: translateX(calc(-50% - 5px)) rotate(-2deg); }
+    30%       { transform: translateX(calc(-50% + 5px)) rotate( 2deg); }
+    45%       { transform: translateX(calc(-50% - 4px)) rotate(-1deg); }
+    60%       { transform: translateX(calc(-50% + 4px)) rotate( 1deg); }
+    75%       { transform: translateX(calc(-50% - 3px));              }
+    90%       { transform: translateX(calc(-50% + 2px));              }
+}
+@keyframes droop {
+    0%, 100% { transform: translateX(-50%) translateY(0px)  scaleY(1.00); }
+    50%       { transform: translateX(-50%) translateY(5px)  scaleY(0.97); }
+}
+@keyframes barely-moving {
+    0%, 100% { transform: translateX(-50%) scale(1.00) translateY(0px);  }
+    50%       { transform: translateX(-50%) scale(0.99) translateY(2px); }
+}
+
+.anim-idle          { animation: idle         3.5s ease-in-out infinite; }
+.anim-sway          { animation: sway         2.2s ease-in-out infinite; }
+.anim-bounce        { animation: bounce       0.65s ease-in-out infinite; }
+.anim-shake         { animation: shake        0.45s ease-in-out infinite; }
+.anim-droop         { animation: droop        3.8s ease-in-out infinite; }
+.anim-barely-moving { animation: barely-moving 6s   ease-in-out infinite; }
+
+/* ── Recent actions strip ────────────────────────────────── */
+
+#recent-actions {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    background: var(--bg);
+    overflow-x: auto;
+    scrollbar-width: none;
+    min-height: 34px;
+    border-bottom: 1px solid var(--border);
+}
+
+#recent-actions::-webkit-scrollbar { display: none; }
+
+.recent-label {
+    font-size: 10px;
+    color: var(--text-muted);
+    flex-shrink: 0;
+}
+
+.recent-chip {
+    flex-shrink: 0;
+    background: rgba(255,255,255,0.1);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 2px 9px;
+    font-size: 11px;
+    color: var(--text);
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+.recent-chip:hover { background: rgba(255,255,255,0.18); }
+
+/* ── Controls (bottom ~45%) ──────────────────────────────── */
+
+#controls {
+    flex: 1;
+    min-height: 0;
+    background: var(--bg);
+    display: flex;
+    flex-direction: column;
+}
+
+#search-wrap {
+    flex-shrink: 0;
+    padding: 10px 12px 8px;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+}
+
+#search-input {
+    width: 100%;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 8px 16px;
+    color: var(--text);
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.2s;
+}
+#search-input:focus { border-color: rgba(255,255,255,0.35); }
+#search-input::placeholder { color: var(--text-muted); }
+
+#action-area {
+    flex: 1;
+    overflow-y: auto;
+    padding: 10px 12px;
+    overscroll-behavior: contain;
+}
+#action-area::-webkit-scrollbar { width: 3px; }
+#action-area::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 2px; }
+
+/* ── Category grid ───────────────────────────────────────── */
+
+.category-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+}
+
+.category-btn {
+    background: rgba(255,255,255,0.07);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 12px 6px;
+    color: var(--text);
+    font-size: 12px;
+    text-align: center;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+    transition: background 0.15s, transform 0.1s;
+    -webkit-tap-highlight-color: transparent;
+}
+.category-btn:active { background: rgba(255,255,255,0.18); transform: scale(0.96); }
+.cat-emoji { font-size: 22px; line-height: 1; }
+.cat-label { text-transform: capitalize; }
+
+/* ── Action list ─────────────────────────────────────────── */
+
+.action-list { display: flex; flex-direction: column; gap: 6px; }
+
+.action-item {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 12px;
+    cursor: pointer;
+    transition: background 0.15s, transform 0.1s;
+    -webkit-tap-highlight-color: transparent;
+}
+.action-item:active          { background: rgba(255,255,255,0.15); transform: scale(0.98); }
+.action-item.disabled        { opacity: 0.35; cursor: not-allowed; pointer-events: none; }
+
+.action-name {
+    font-size: 13px;
+    font-weight: 600;
+    text-transform: capitalize;
+    letter-spacing: 0.01em;
+}
+.action-desc { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+.action-dur  { font-size: 10px; color: rgba(255,255,255,0.28); margin-top: 1px; }
+
+/* ── Back button ─────────────────────────────────────────── */
+
+.back-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 13px;
+    cursor: pointer;
+    padding: 0 0 10px;
+    -webkit-tap-highlight-color: transparent;
+}
+.back-btn:hover { color: var(--text); }
+
+/* ── Reset button ────────────────────────────────────────── */
+
+#reset-btn {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    background: rgba(0,0,0,0.45);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text-muted);
+    font-size: 11px;
+    padding: 4px 9px;
+    cursor: pointer;
+    z-index: 10;
+    -webkit-tap-highlight-color: transparent;
+}
+#reset-btn:active { background: rgba(255,255,255,0.1); }
+
+#lab-btn {
+    position: absolute;
+    bottom: 10px;
+    left: 10px;
+    background: rgba(0,0,0,0.45);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text-muted);
+    font-size: 11px;
+    padding: 4px 9px;
+    cursor: pointer;
+    z-index: 10;
+    text-decoration: none;
+    -webkit-tap-highlight-color: transparent;
+}
+#lab-btn:active { background: rgba(255,255,255,0.1); }
+
+/* ── Audio toggle ────────────────────────────────────────── */
+
+#audio-btn {
+    position: absolute;
+    bottom: 10px;
+    right: 10px;
+    background: rgba(0,0,0,0.45);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text-muted);
+    font-size: 18px;
+    width: 34px;
+    height: 34px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 10;
+    -webkit-tap-highlight-color: transparent;
+}
+#audio-btn:active { background: rgba(255,255,255,0.1); }

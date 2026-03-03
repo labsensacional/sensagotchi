@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sensagotchi</title>
+  <script src="https://cdn.jsdelivr.net/npm/p5@1.9.4/lib/p5.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #f0f0f0;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      min-height: 100vh;
+      font-family: system-ui, -apple-system, sans-serif;
+      padding: 24px;
+      gap: 24px;
+    }
+
+    /* ── Left column: canvas + preset buttons ── */
+    #left-col {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+      flex-shrink: 0;
+      min-width: 0;
+    }
+
+    h1 {
+      font-size: 1.0rem;
+      font-weight: 700;
+      color: #333;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    #nav {
+      display: flex;
+      gap: 6px;
+    }
+
+    #nav a {
+      padding: 5px 13px;
+      border: 2px solid #b0d8d8;
+      border-radius: 999px;
+      background: white;
+      color: #2a7a7a;
+      font-size: 0.78rem;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: none;
+      transition: all 0.15s ease;
+    }
+
+    #nav a:hover  { background: #e0f5f5; border-color: #48b9b9; }
+    #nav a.active { background: #48b9b9; border-color: #48b9b9; color: white; }
+
+    #canvas-wrap {
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+      width: min(480px, calc(100vw - 48px));
+      aspect-ratio: 1;
+    }
+
+    #canvas-wrap canvas {
+      display: block !important;
+      width: 100% !important;
+      height: 100% !important;
+    }
+
+    #presets {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      justify-content: center;
+      max-width: 480px;
+    }
+
+    button {
+      padding: 6px 14px;
+      border: 2px solid #b0d8d8;
+      border-radius: 999px;
+      background: white;
+      color: #2a7a7a;
+      font-size: 0.78rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      text-transform: capitalize;
+      letter-spacing: 0.02em;
+    }
+
+    button:hover  { background: #e0f5f5; border-color: #48b9b9; }
+    button.active { background: #48b9b9; border-color: #48b9b9; color: white; }
+
+    /* ── Right column: slider panel ── */
+    #panel {
+      flex: 1;
+      max-width: 340px;
+      max-height: calc(100vh - 48px);
+      overflow-y: auto;
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.08);
+      padding: 18px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .group-title {
+      font-size: 0.68rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.10em;
+      color: #999;
+      padding: 10px 0 4px;
+      border-bottom: 1px solid #eee;
+      margin-bottom: 2px;
+    }
+
+    .group-title:first-child { padding-top: 0; }
+
+    .slider-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .slider-label {
+      font-size: 0.76rem;
+      color: #555;
+      width: 88px;
+      flex-shrink: 0;
+      text-align: right;
+    }
+
+    .slider-row input[type="range"] {
+      flex: 1;
+      height: 4px;
+      accent-color: #48b9b9;
+      cursor: pointer;
+    }
+
+    .slider-val {
+      font-size: 0.76rem;
+      color: #48b9b9;
+      font-weight: 700;
+      width: 26px;
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+
+    @media (max-width: 640px) {
+      body {
+        flex-direction: column;
+        align-items: center;
+        padding: 16px;
+        gap: 16px;
+        overflow-y: auto;
+      }
+
+      #left-col {
+        width: 100%;
+      }
+
+      #canvas-wrap {
+        width: min(480px, 100%);
+      }
+
+      #presets {
+        max-width: 100%;
+      }
+
+      #panel {
+        width: 100%;
+        max-width: 100%;
+        max-height: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="left-col">
+    <nav id="nav">
+      <a href="index.html">← home</a>
+      <a href="emotions-expression-test.html" class="active">lab</a>
+    </nav>
+    <h1>Sensagotchi — State Lab</h1>
+    <div id="avatar-canvas-wrap"></div>
+    <div id="presets"></div>
+  </div>
+
+  <div id="panel"></div>
+
+  <script src="monster.js"></script>
+  <script>
+    let state = { ...DEFAULT_STATE };
+    const sliderEls = {};
+
+    // ── Build slider panel ────────────────────────────────────────────────────
+    const panel = document.getElementById('panel');
+    for (const group of SLIDER_GROUPS) {
+      const title = document.createElement('div');
+      title.className = 'group-title';
+      title.textContent = group.label;
+      panel.appendChild(title);
+
+      for (const key of group.keys) {
+        const row   = document.createElement('div');
+        row.className = 'slider-row';
+
+        const label = document.createElement('span');
+        label.className = 'slider-label';
+        label.textContent = key;
+
+        const input = document.createElement('input');
+        input.type  = 'range';
+        input.min   = 0;
+        input.max   = 100;
+        input.value = state[key];
+
+        const valEl = document.createElement('span');
+        valEl.className   = 'slider-val';
+        valEl.textContent = state[key];
+
+        input.addEventListener('input', () => {
+          state[key] = Number(input.value);
+          valEl.textContent = input.value;
+          document.querySelectorAll('#presets button').forEach(b => b.classList.remove('active'));
+          updateMonsterFromApp(state);
+        });
+
+        row.appendChild(label);
+        row.appendChild(input);
+        row.appendChild(valEl);
+        panel.appendChild(row);
+        sliderEls[key] = { input, valEl };
+      }
+    }
+
+    // ── Build preset buttons ──────────────────────────────────────────────────
+    const presetsEl = document.getElementById('presets');
+    for (const [name, preset] of Object.entries(STATE_PRESETS)) {
+      const btn = document.createElement('button');
+      btn.textContent = name.replace(/_/g, ' ');
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('#presets button').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        state = { ...DEFAULT_STATE, ...preset };
+        for (const [key, el] of Object.entries(sliderEls)) {
+          el.input.value    = state[key];
+          el.valEl.textContent = state[key];
+        }
+        updateMonsterFromApp(state);
+      });
+      presetsEl.appendChild(btn);
+    }
+
+    // ── Initial render after p5 setup() has run ───────────────────────────────
+    window.addEventListener('load', () => {
+      presetsEl.querySelector('button').classList.add('active');
+      updateMonsterFromApp(state);
+    });
+  </script>
+</body>
+</html>
