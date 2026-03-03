@@ -536,6 +536,7 @@ function toggleAudio() {
 // Boot
 // =============================================================
 document.addEventListener('DOMContentLoaded', init);
+document.addEventListener('click', () => $('hud').classList.remove('open'));
 
 // Expose globals for inline onclick handlers (ES modules don't auto-expose to window)
 window.resetGame       = resetGame;
