@@ -229,11 +229,18 @@ Some useful concepts below. Besides that this [google slide](https://docs.google
 - The Man Who Mistook His Wife for a Hat — Oliver Sacks  
 - Kinsey and Masters & Johnson studies
 
+### Emotion expression
+
+- On the expression of humans and animals - Darwin
+- The Mechanism of Human Facial Expression - G. -B. Duchenne de Boulogne, R. Andrew Cuthbertson
+
+
 #### Dynamical Systems
 
 - Self-organized criticality
 
 #### Mas cosas
+
 
 - Opponent-Process Theory (Solomon & Corbit)                                                                                                                                       
 - Gate Control Theory of Pain (Melzack & Wall)                                                                                                                                     

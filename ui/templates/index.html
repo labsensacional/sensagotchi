@@ -6,6 +6,8 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <title>Tamagotchi Hedonista</title>
     <link rel="stylesheet" href="/static/style.css">
+    <!-- p5.js for procedural avatar -->
+    <script src="https://cdn.jsdelivr.net/npm/p5@1.9.4/lib/p5.min.js"></script>
     <!-- Tone.js for procedural audio -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.js"></script>
 </head>
@@ -18,38 +20,51 @@
 
         <button id="reset-btn" onclick="resetGame()">↺ reset</button>
 
-        <!-- HUD bars: liking / anxiety / energy -->
+        <!-- HUD bars: liking / anxiety / energy (hover for full detail) -->
         <div id="hud">
             <div class="hud-row">
-                <span class="hud-label">♥</span>
+                <span class="hud-label" data-tip="liking">♥</span>
                 <div class="hud-track">
                     <div class="hud-fill" id="hud-liking" style="--color:#ff9f43"></div>
                 </div>
             </div>
             <div class="hud-row">
-                <span class="hud-label">⚡</span>
+                <span class="hud-label" data-tip="anxiety">⚡</span>
                 <div class="hud-track">
                     <div class="hud-fill" id="hud-anxiety" style="--color:#ee5a24"></div>
                 </div>
             </div>
             <div class="hud-row">
-                <span class="hud-label">✦</span>
+                <span class="hud-label" data-tip="energy">✦</span>
                 <div class="hud-track">
                     <div class="hud-fill" id="hud-energy" style="--color:#00b894"></div>
                 </div>
             </div>
             <div class="hud-row">
-                <span class="hud-label">◎</span>
+                <span class="hud-label" data-tip="arousal">◎</span>
                 <div class="hud-track">
                     <div class="hud-fill" id="hud-arousal" style="--color:#a29bfe"></div>
                 </div>
             </div>
+            <div class="hud-row">
+                <span class="hud-label" data-tip="sleepiness">☽</span>
+                <div class="hud-track">
+                    <div class="hud-fill" id="hud-sleepiness" style="--color:#636e72"></div>
+                </div>
+            </div>
+            <div class="hud-row">
+                <span class="hud-label" data-tip="hunger">◇</span>
+                <div class="hud-track">
+                    <div class="hud-fill" id="hud-hunger" style="--color:#e67e22"></div>
+                </div>
+            </div>
+            <!-- Detail panel: visible on hover -->
+            <div id="hud-detail"></div>
         </div>
 
-        <!-- Avatar (base silhouette + expression overlay) -->
+        <!-- Avatar (p5.js procedural monster) -->
         <div class="avatar-container anim-idle" id="avatar-container">
-            <img class="avatar-layer" id="avatar-base" src="/static/avatar/base.png" alt="avatar">
-            <img class="avatar-layer" id="avatar-expr" src="/static/avatar/expr_neutral.png" alt="expression">
+            <div id="avatar-canvas-wrap"></div>
         </div>
 
         <!-- Audio toggle -->
@@ -76,6 +91,7 @@
     </div>
 
 </div><!-- #app -->
+<script src="/static/monster.js"></script>
 <script src="/static/main.js"></script>
 </body>
 </html>

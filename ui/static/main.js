@@ -67,17 +67,7 @@ const ACTION_BG = {
     new_relationship:     'life',
 };
 
-// ── Avatar expression + animation logic ───────────────────────
-function getExpression(s) {
-    if (s.shutdown     > 40)                     return 'blank';
-    if (s.anxiety      > 70)                     return 'anxious';
-    if (s.sleepiness   > 65)                     return 'sleepy';
-    if (s.liking_score > 65 && s.arousal > 55)   return 'ecstatic';
-    if (s.liking_score > 48)                     return 'happy';
-    if (s.liking_score < 20)                     return 'sad';
-    return 'neutral';
-}
-
+// ── Avatar animation logic ─────────────────────────────────────
 function getAnimation(s) {
     if (s.shutdown   > 40)                     return 'barely-moving';
     if (s.sleepiness > 60)                     return 'droop';
@@ -91,22 +81,12 @@ function getAnimation(s) {
 function $(id) { return document.getElementById(id); }
 
 function updateAvatar(s) {
-    const expr      = getExpression(s);
+    // Update p5.js monster visual state
+    if (window.updateMonsterFromApp) window.updateMonsterFromApp(s);
+
+    // Swap CSS animation class on the container (body motion)
     const anim      = getAnimation(s);
     const container = $('avatar-container');
-    const exprImg   = $('avatar-expr');
-
-    // Swap expression (fade via opacity transition in CSS)
-    const nextSrc = `/static/avatar/expr_${expr}.png`;
-    if (exprImg.src !== nextSrc) {
-        exprImg.style.opacity = '0';
-        setTimeout(() => {
-            exprImg.src = nextSrc;
-            exprImg.style.opacity = '1';
-        }, 200);
-    }
-
-    // Swap animation class
     const animClasses = ['anim-idle','anim-sway','anim-bounce',
                          'anim-shake','anim-droop','anim-barely-moving'];
     container.classList.remove(...animClasses);
@@ -115,15 +95,70 @@ function updateAvatar(s) {
 
 function updateHUD(s) {
     const bars = [
-        { id: 'hud-liking',  val: s.liking_score },
-        { id: 'hud-anxiety', val: s.anxiety       },
-        { id: 'hud-energy',  val: s.energy        },
-        { id: 'hud-arousal', val: s.arousal       },
+        { id: 'hud-liking',    val: s.liking_score },
+        { id: 'hud-anxiety',   val: s.anxiety      },
+        { id: 'hud-energy',    val: s.energy       },
+        { id: 'hud-arousal',   val: s.arousal      },
+        { id: 'hud-sleepiness',val: s.sleepiness   },
+        { id: 'hud-hunger',    val: s.hunger       },
     ];
     bars.forEach(({ id, val }) => {
         const el = $(id);
         if (el) el.style.width = `${Math.max(0, Math.min(100, val))}%`;
     });
+    updateHUDDetail(s);
+}
+
+// Color per field (CSS custom property --dc on .detail-fill)
+const DETAIL_COLORS = {
+    dopamine:    '#fdcb6e', serotonin:   '#55efc4', endorphins:  '#fd79a8',
+    oxytocin:    '#74b9ff', prolactin:   '#a29bfe', vasopressin: '#e17055',
+    arousal:     '#a29bfe', energy:      '#00b894', sleepiness:  '#636e72',
+    hunger:      '#e67e22', anxiety:     '#ee5a24', prefrontal:  '#0984e3',
+    absorption:  '#6c5ce7', shutdown:    '#2d3436',
+};
+
+const DETAIL_GROUPS = [
+    { label: 'Neurotransmitters', rows: [
+        ['dopamine',    'dopamine'   ],
+        ['serotonin',   'serotonin'  ],
+        ['endorphins',  'endorphins' ],
+        ['oxytocin',    'oxytocin'   ],
+        ['prolactin',   'prolactin'  ],
+        ['vasopressin', 'vasopressin'],
+    ]},
+    { label: 'Body', rows: [
+        ['arousal',    'arousal'   ],
+        ['energy',     'energy'    ],
+        ['sleepiness', 'sleepiness'],
+        ['hunger',     'hunger'    ],
+    ]},
+    { label: 'Mind', rows: [
+        ['anxiety',    'anxiety'   ],
+        ['prefrontal', 'prefrontal'],
+        ['absorption', 'absorption'],
+        ['shutdown',   'shutdown'  ],
+    ]},
+];
+
+function updateHUDDetail(s) {
+    const el = $('hud-detail');
+    if (!el) return;
+    el.innerHTML = DETAIL_GROUPS.map(g => `
+        <div class="detail-group">
+            <div class="detail-group-label">${g.label}</div>
+            ${g.rows.map(([key, label]) => {
+                const val = Math.round(s[key] ?? 0);
+                const col = DETAIL_COLORS[key] || 'rgba(255,255,255,0.45)';
+                return `<div class="detail-row">
+                    <span class="detail-key">${label}</span>
+                    <div class="detail-bar">
+                        <div class="detail-fill" style="width:${val}%;--dc:${col}"></div>
+                    </div>
+                    <span class="detail-val">${val}</span>
+                </div>`;
+            }).join('')}
+        </div>`).join('');
 }
 
 function updateBackground(actionName) {
