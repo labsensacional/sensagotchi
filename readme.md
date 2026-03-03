@@ -1,6 +1,6 @@
-# tamagotchi-hedonista
+# sensagotchi
 
-tamagotchi-hedonista is a small simulation framework for modeling limbic and affective dynamics under abstract human actions.
+sensagotchi ("sensations watch") is a small simulation framework for modeling limbic and affective dynamics under abstract human actions.
 
 It treats actions like “jerking off”, “going to a party”, “losing your job”, or “receiving light pain” not as narrative events, but as perturbations to a physiological–affective system that evolves over time.
 
