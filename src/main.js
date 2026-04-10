@@ -4,6 +4,7 @@
 
 import { Human, create_human } from './internal-logic/human.js';
 import { make_events, apply_event, apply_decay, drainNotifications } from './internal-logic/events.js';
+import { actionLabel, eventDisplay, getInitialLocale, getLocale, setLocale, t, translateNotification } from './i18n.js';
 
 // ── State ──────────────────────────────────────────────────────
 let currentState   = null;
@@ -19,22 +20,21 @@ let onboardingDismissed = false;
 
 // ── Category metadata ──────────────────────────────────────────
 const CAT_META = {
-    sexual:    { emoji: '💫', label: 'sexual'    },
-    social:    { emoji: '🤝', label: 'social'    },
-    pain:      { emoji: '⚡', label: 'pain'      },
-    breathwork:{ emoji: '🌬️', label: 'breath'    },
-    food:      { emoji: '🍎', label: 'food'      },
-    rest:      { emoji: '😴', label: 'rest'      },
-    drugs:     { emoji: '💊', label: 'drugs'     },
-    medical:   { emoji: '🏥', label: 'medical'   },
-    life:      { emoji: '🌍', label: 'life'      },
+    sexual:    { emoji: '💫', labelKey: 'ui.category_sexual'    },
+    social:    { emoji: '🤝', labelKey: 'ui.category_social'    },
+    pain:      { emoji: '⚡', labelKey: 'ui.category_pain'      },
+    breathwork:{ emoji: '🌬️', labelKey: 'ui.category_breathwork'    },
+    food:      { emoji: '🍎', labelKey: 'ui.category_food'      },
+    rest:      { emoji: '😴', labelKey: 'ui.category_rest'      },
+    drugs:     { emoji: '💊', labelKey: 'ui.category_drugs'     },
+    medical:   { emoji: '🏥', labelKey: 'ui.category_medical'   },
+    life:      { emoji: '🌍', labelKey: 'ui.category_life'      },
 };
 
 const PERSISTENT_CATEGORIES = new Set(['life', 'medical']);
-const ACTION_LABELS = {
-    immediate: 'accion inmediata',
-    persistent: 'estado global',
-};
+const GLOBAL_VISUAL_CLASSES = [
+    'state-stress-low', 'state-stress-high', 'state-ssri', 'state-shutdown'
+];
 
 // ── Background mapping (action → bg key) ──────────────────────
 const ACTION_BG = {
@@ -133,7 +133,7 @@ const DETAIL_COLORS = {
 };
 
 const DETAIL_GROUPS = [
-    { label: 'Neurotransmitters', rows: [
+    { labelKey: 'ui.detail_neuro', rows: [
         ['dopamine',    'dopamine'   ],
         ['serotonin',   'serotonin'  ],
         ['endorphins',  'endorphins' ],
@@ -141,21 +141,21 @@ const DETAIL_GROUPS = [
         ['prolactin',   'prolactin'  ],
         ['vasopressin', 'vasopressin'],
     ]},
-    { label: 'Body', rows: [
-        ['arousal',    'arousal'   ],
+    { labelKey: 'ui.detail_body', rows: [
+        ['arousal',    'ui.detail_arousal'   ],
         ['energy',     'energy'    ],
         ['sleepiness', 'sleepiness'],
         ['hunger',     'hunger'    ],
     ]},
-    { label: 'Mind', rows: [
+    { labelKey: 'ui.detail_mind', rows: [
         ['anxiety',    'anxiety'   ],
         ['prefrontal', 'prefrontal'],
         ['absorption', 'absorption'],
         ['shutdown',   'shutdown'  ],
     ]},
-    { label: 'Health', rows: [
-        ['physical_health',      'physical'     ],
-        ['psychological_health', 'psychological'],
+    { labelKey: 'ui.detail_health', rows: [
+        ['physical_health',      'ui.detail_physical'     ],
+        ['psychological_health', 'ui.detail_psychological'],
     ]},
 ];
 
@@ -164,12 +164,12 @@ function updateHUDDetail(s) {
     if (!el) return;
     el.innerHTML = DETAIL_GROUPS.map(g => `
         <div class="detail-group">
-            <div class="detail-group-label">${g.label}</div>
+            <div class="detail-group-label">${t(g.labelKey)}</div>
             ${g.rows.map(([key, label]) => {
                 const val = Math.round(s[key] ?? 0);
                 const col = DETAIL_COLORS[key] || 'rgba(255,255,255,0.45)';
                 return `<div class="detail-row">
-                    <span class="detail-key">${label}</span>
+                    <span class="detail-key">${label.includes('.') ? t(label) : label}</span>
                     <div class="detail-bar">
                         <div class="detail-fill" style="width:${val}%;--dc:${col}"></div>
                     </div>
@@ -214,14 +214,18 @@ function events_by_category() {
         if (!cats[cat]) cats[cat] = [];
         const reason = event.blocked_reason;
         const noteFn = event.note;
+        const rawBlocked = typeof reason === 'function' ? reason(_human) : (reason || '');
+        const rawNote = typeof noteFn === 'function' ? noteFn(_human) : null;
+        const display = eventDisplay(name, _human, rawBlocked, rawNote);
         cats[cat].push({
             name,
-            description:    event.description,
+            display_name:   display.name,
+            description:    display.description || event.description,
             duration:       event.duration,
             category:       cat,
             can_apply:      event.can_apply(_human),
-            blocked_reason: typeof reason === 'function' ? reason(_human) : (reason || ''),
-            note:           typeof noteFn === 'function' ? noteFn(_human) : null,
+            blocked_reason: display.blocked,
+            note:           display.note,
         });
     }
     return cats;
@@ -233,10 +237,12 @@ function getActionMode(action) {
 
 function renderActionMeta(action) {
     const mode = getActionMode(action);
-    const durationLabel = action.duration >= 1 ? `${action.duration}h de efecto` : `${Math.round(action.duration * 60)}m`;
+    const durationLabel = action.duration >= 1
+        ? t('ui.durationHours', { hours: action.duration })
+        : t('ui.durationMinutes', { minutes: Math.round(action.duration * 60) });
     return `
         <div class="action-meta">
-            <span class="action-pill ${mode}">${ACTION_LABELS[mode]}</span>
+            <span class="action-pill ${mode}">${t(`ui.${mode}`)}</span>
             <span class="action-dur">${durationLabel}</span>
         </div>`;
 }
@@ -251,9 +257,9 @@ function updateBackground(actionName) {
 function updateRecentActions(lastActions) {
     const el = $('recent-actions');
     const chips = lastActions.slice().reverse().map(a =>
-        `<span class="recent-chip" onclick="applyAction('${a}')">${a.replace(/_/g, ' ')}</span>`
+        `<span class="recent-chip" onclick="applyAction('${a}')">${actionLabel(a)}</span>`
     ).join('');
-    el.innerHTML = `<span class="recent-label">recent:</span>${chips}`;
+    el.innerHTML = `<span class="recent-label">${t('ui.recent')}</span>${chips}`;
 }
 
 // Color per notification type
@@ -272,6 +278,14 @@ const NOTIF_COLORS = {
 
 let _notifTimer = null;
 
+function notificationDuration(text) {
+    const len = (text || '').trim().length;
+    if (len <= 60) return 3000;
+    if (len <= 110) return 4300;
+    if (len <= 170) return 5600;
+    return 7000;
+}
+
 function showEventNotification(text, type) {
     const el = $('event-notification');
     if (!el) return;
@@ -279,13 +293,15 @@ function showEventNotification(text, type) {
     // Clear any existing timer so previous message doesn't cut the new one short
     if (_notifTimer) { clearTimeout(_notifTimer); _notifTimer = null; }
 
+    const translatedText = translateNotification(text);
     const color = NOTIF_COLORS[type] || 'rgba(255,255,255,0.9)';
-    el.innerHTML = `<div class="event-notif" style="--notif-color:${color}">${text}</div>`;
+    el.innerHTML = `<div class="event-notif" style="--notif-color:${color}">${translatedText}</div>`;
+    const durationMs = notificationDuration(translatedText);
 
     _notifTimer = setTimeout(() => {
         el.innerHTML = '';
         _notifTimer = null;
-    }, 3000);
+    }, durationMs);
 }
 
 // ── Action summary notification ────────────────────────────
@@ -312,38 +328,41 @@ function getActiveGlobalStates(state) {
         const severity = state.life_stress >= 60 ? 'alto' : 'medio';
         items.push({
             tone: 'persistent',
-            label: `estrés de fondo ${severity}`,
-            detail: 'drena absorción y salud psicológica con el tiempo',
+            label: severity === 'alto' ? t('ui.global_stress_high') : t('ui.global_stress_med'),
+            detail: t('ui.global_stress_detail'),
+            banner: severity === 'alto' ? t('ui.global_stress_banner_high') : t('ui.global_stress_banner_med'),
         });
     }
 
     if (state.ssri_level >= 10) {
         items.push({
             tone: 'persistent',
-            label: 'ssri activo',
-            detail: 'amortigua respuesta sexual y parte del pico dopaminérgico',
+            label: t('ui.global_ssri'),
+            detail: t('ui.global_ssri_detail'),
+            banner: t('ui.global_ssri_banner'),
         });
     }
 
     if (state.testosterone >= 65) {
         items.push({
             tone: 'immediate',
-            label: 'testosterona alta',
-            detail: 'sube drive y vuelve el sistema más reactivo',
+            label: t('ui.global_testosterone_high'),
+            detail: t('ui.global_testosterone_high_detail'),
         });
     } else if (state.testosterone <= 35) {
         items.push({
             tone: 'immediate',
-            label: 'testosterona baja',
-            detail: 'baja impulso, arousal y margen para ciertas acciones',
+            label: t('ui.global_testosterone_low'),
+            detail: t('ui.global_testosterone_low_detail'),
         });
     }
 
     if (state.shutdown >= 35) {
         items.push({
             tone: 'persistent',
-            label: 'shutdown activo',
-            detail: 'aplana deseo y placer aunque sigas actuando',
+            label: t('ui.global_shutdown'),
+            detail: t('ui.global_shutdown_detail'),
+            banner: t('ui.global_shutdown_banner'),
         });
     }
 
@@ -356,12 +375,12 @@ function updateGlobalStatePanel(state) {
 
     const active = getActiveGlobalStates(state);
     if (!active.length) {
-        el.innerHTML = `<div class="global-state-empty">sin estados globales dominantes por ahora</div>`;
+        el.innerHTML = `<div class="global-state-empty">${t('ui.noDominantGlobalState')}</div>`;
         return;
     }
 
     el.innerHTML = `
-        <div class="global-state-header">contexto activo</div>
+        <div class="global-state-header">${t('ui.contextHeader')}</div>
         <div class="global-state-list">
             ${active.map(item => `
                 <div class="global-state-item">
@@ -374,51 +393,162 @@ function updateGlobalStatePanel(state) {
 function getContextReminder(state) {
     const active = getActiveGlobalStates(state);
     if (!active.length) return null;
-    return `Contexto activo: ${active[0].label}.`;
+    return t('ui.contextReminder', { banner: active[0].banner || active[0].label });
+}
+
+function updateMonsterStatusBanner(state) {
+    const el = $('monster-status-banner');
+    if (!el) return;
+    const active = getActiveGlobalStates(state).filter(item => item.tone === 'persistent');
+    if (!active.length) {
+        el.innerHTML = '';
+        el.className = '';
+        return;
+    }
+
+    const primary = active[0];
+    el.className = `banner-${primary.label.includes('shutdown') ? 'shutdown' : primary.label.includes('ssri') ? 'ssri' : 'stress'}`;
+    el.innerHTML = `
+        <div class="monster-status-kicker">${t('ui.monsterStatus')}</div>
+        <div class="monster-status-copy">${primary.banner}</div>`;
+}
+
+function updateGlobalVisualState(state) {
+    const avatarSection = $('avatar-section');
+    if (!avatarSection) return;
+    avatarSection.classList.remove(...GLOBAL_VISUAL_CLASSES);
+
+    if (state.life_stress >= 60) {
+        avatarSection.classList.add('state-stress-high');
+    } else if (state.life_stress >= 15) {
+        avatarSection.classList.add('state-stress-low');
+    }
+
+    if (state.ssri_level >= 10) {
+        avatarSection.classList.add('state-ssri');
+    }
+
+    if (state.shutdown >= 35) {
+        avatarSection.classList.add('state-shutdown');
+    }
+}
+
+function classifyPleasure(before, after) {
+    const likingDelta = (after.liking_score ?? 0) - (before.liking_score ?? 0);
+    const endorphinDelta = (after.endorphins ?? 0) - (before.endorphins ?? 0);
+    const oxytocinDelta = (after.oxytocin ?? 0) - (before.oxytocin ?? 0);
+    const serotoninDelta = (after.serotonin ?? 0) - (before.serotonin ?? 0);
+
+    const pleasureDrivers = [];
+    if (endorphinDelta >= 5) pleasureDrivers.push(getLocale() === 'es' ? 'endorfinas' : 'endorphins');
+    if (oxytocinDelta >= 5) pleasureDrivers.push(getLocale() === 'es' ? 'oxitocina' : 'oxytocin');
+    if (serotoninDelta >= 5) pleasureDrivers.push(getLocale() === 'es' ? 'serotonina' : 'serotonin');
+
+    if (likingDelta >= 6) {
+        return pleasureDrivers.length
+            ? t('ui.notif_pleasurable_mix', { drivers: pleasureDrivers.join(', ') })
+            : t('ui.notif_pleasurable');
+    }
+    if (likingDelta <= -4) {
+        return t('ui.notif_unpleasant');
+    }
+    return null;
+}
+
+function classifyDesire(before, after) {
+    const dopamineDelta = (after.dopamine ?? 0) - (before.dopamine ?? 0);
+    const wantingDelta = (after.wanting_score ?? 0) - (before.wanting_score ?? 0);
+
+    if (dopamineDelta >= 8 || wantingDelta >= 6) {
+        return t('ui.notif_desire_up');
+    }
+    if (dopamineDelta <= -8 || wantingDelta <= -6) {
+        return t('ui.notif_desire_down');
+    }
+    return null;
+}
+
+function joinPhrases(parts) {
+    return parts.join(getLocale() === 'es' ? ' y ' : ' and ');
+}
+
+function buildImmediateFeedback(action, before, after, finalState) {
+    const delta = (key) => (after[key] ?? 0) - (before[key] ?? 0);
+    const bits = [];
+
+    if (delta('anxiety') <= -8) bits.push(t('ui.notif_calmed'));
+    if (delta('anxiety') >= 8) bits.push(t('ui.notif_tense'));
+    if (delta('energy') <= -8) bits.push(t('ui.notif_drained'));
+    if (delta('energy') >= 8) bits.push(t('ui.notif_energy_up'));
+    if (delta('sleepiness') >= 10) bits.push(t('ui.notif_sleepy'));
+    if (delta('sleepiness') <= -10) bits.push(t('ui.notif_awake'));
+    if (delta('arousal') >= 12) bits.push(t('ui.notif_arousal_up'));
+    if (delta('hunger') <= -10) bits.push(t('ui.notif_hunger_down'));
+    if (delta('hunger') >= 10) bits.push(t('ui.notif_hunger_up'));
+    if (delta('physical_health') <= -3) bits.push(t('ui.notif_body_hit'));
+    if (delta('psychological_health') <= -3) bits.push(t('ui.notif_mind_hit'));
+
+    const primary = joinPhrases(bits.slice(0, 2));
+    const parts = [];
+    const pleasure = classifyPleasure(before, after);
+    if (pleasure) parts.push(pleasure);
+    const desire = classifyDesire(before, after);
+    if (desire) parts.push(desire);
+    if (primary) parts.push(primary);
+
+    const reminder = getContextReminder(finalState);
+    if (reminder && action.category !== 'life' && action.category !== 'medical') {
+        parts.push(t('ui.notif_context_prefix', { banner: reminder }));
+    }
+
+    return parts.join(' ');
 }
 
 function buildNarrativeFeedback(action, before, after, finalState) {
     const mode = getActionMode(action);
+    if (mode === 'immediate') {
+        return buildImmediateFeedback(action, before, after, finalState);
+    }
     const leads = [];
     const costs = [];
 
     const delta = (key) => (after[key] ?? 0) - (before[key] ?? 0);
 
-    if (delta('anxiety') <= -8) leads.push('bajó la ansiedad');
-    if (delta('anxiety') >= 8) costs.push('te activó de más');
+    if (delta('anxiety') <= -8) leads.push(getLocale() === 'es' ? 'bajó la ansiedad' : 'anxiety went down');
+    if (delta('anxiety') >= 8) costs.push(getLocale() === 'es' ? 'te activó de más' : 'it overactivated the system');
 
-    if (delta('energy') <= -8) costs.push('te drenó energía');
-    if (delta('energy') >= 8) leads.push('te levantó la energía');
+    if (delta('energy') <= -8) costs.push(getLocale() === 'es' ? 'te drenó energía' : 'it drained energy');
+    if (delta('energy') >= 8) leads.push(getLocale() === 'es' ? 'te levantó la energía' : 'it raised energy');
 
-    if (delta('sleepiness') >= 10) costs.push('te dejó con sueño');
-    if (delta('sleepiness') <= -10) leads.push('te despejó');
+    if (delta('sleepiness') >= 10) costs.push(getLocale() === 'es' ? 'te dejó con sueño' : 'it made the monster sleepier');
+    if (delta('sleepiness') <= -10) leads.push(getLocale() === 'es' ? 'te despejó' : 'it cleared the system up');
 
-    if (delta('hunger') <= -10) leads.push('te sacó el hambre');
-    if (delta('hunger') >= 10) costs.push('te abrió el apetito');
+    if (delta('hunger') <= -10) leads.push(getLocale() === 'es' ? 'te sacó el hambre' : 'it reduced hunger');
+    if (delta('hunger') >= 10) costs.push(getLocale() === 'es' ? 'te abrió el apetito' : 'it raised appetite');
 
-    if (delta('arousal') >= 12) leads.push('subió el arousal');
-    if (delta('absorption') >= 10) leads.push('te metió más en la experiencia');
-    if (delta('prefrontal') <= -10) costs.push('te soltó el control');
+    if (delta('arousal') >= 12) leads.push(getLocale() === 'es' ? 'subió la activación' : 'arousal went up');
+    if (delta('absorption') >= 10) leads.push(getLocale() === 'es' ? 'te metió más en la experiencia' : 'it pulled the monster deeper into the experience');
+    if (delta('prefrontal') <= -10) costs.push(getLocale() === 'es' ? 'te soltó el control' : 'it loosened top-down control');
 
-    if (delta('psychological_health') >= 3) leads.push('te estabilizó un poco');
-    if (delta('psychological_health') <= -3) costs.push('te pegó en la salud psicológica');
-    if (delta('physical_health') >= 3) leads.push('mejoró el cuerpo');
-    if (delta('physical_health') <= -3) costs.push('castigó el cuerpo');
+    if (delta('psychological_health') >= 3) leads.push(getLocale() === 'es' ? 'te estabilizó un poco' : 'it stabilized the system a bit');
+    if (delta('psychological_health') <= -3) costs.push(getLocale() === 'es' ? 'te pegó en la salud psicológica' : 'it hurt psychological health');
+    if (delta('physical_health') >= 3) leads.push(getLocale() === 'es' ? 'mejoró el cuerpo' : 'it improved the body');
+    if (delta('physical_health') <= -3) costs.push(getLocale() === 'es' ? 'castigó el cuerpo' : 'it hurt the body');
 
     const intro = mode === 'persistent'
-        ? 'Cambió el contexto de fondo.'
-        : 'Impacto inmediato.';
+        ? (getLocale() === 'es' ? 'Cambió el contexto de fondo.' : 'It changed the background context.')
+        : (getLocale() === 'es' ? 'Impacto inmediato.' : 'Immediate impact.');
 
-    const best = leads.slice(0, 2).join(' y ');
-    const worst = costs.slice(0, 2).join(' y ');
+    const best = joinPhrases(leads.slice(0, 2));
+    const worst = joinPhrases(costs.slice(0, 2));
 
     let sentence = intro;
     if (best) sentence += ` ${best.charAt(0).toUpperCase() + best.slice(1)}.`;
-    if (worst) sentence += ` Pero ${worst}.`;
+    if (worst) sentence += getLocale() === 'es' ? ` Pero ${worst}.` : ` But ${worst}.`;
 
     if (!best && !worst) {
         const fallback = buildActionSummary(before, after);
-        if (fallback) sentence += ` Cambios principales: ${fallback}.`;
+        if (fallback) sentence += getLocale() === 'es' ? ` Cambios principales: ${fallback}.` : ` Main changes: ${fallback}.`;
     }
 
     const reminder = getContextReminder(finalState);
@@ -434,21 +564,21 @@ function explainDeath(state) {
     const factors = [];
 
     if (state.physical_health <= 0) {
-        causes.push('fallo de salud fisica');
+        causes.push(t('ui.death_physical'));
     }
     if (state.psychological_health <= 0) {
-        causes.push('colapso de salud psicologica');
+        causes.push(t('ui.death_psychological'));
     }
 
-    if (state.anxiety >= 70) factors.push(`ansiedad extrema (${Math.round(state.anxiety)})`);
-    if (state.sleepiness >= 70) factors.push(`agotamiento y sueño acumulado (${Math.round(state.sleepiness)})`);
-    if (state.energy <= 25) factors.push(`energia casi agotada (${Math.round(state.energy)})`);
-    if (state.hunger >= 70) factors.push(`hambre alta (${Math.round(state.hunger)})`);
-    if (state.shutdown >= 50) factors.push(`shutdown elevado (${Math.round(state.shutdown)})`);
-    if (state.arousal >= 80 && state.anxiety >= 60) factors.push('sobrecarga entre arousal alto y ansiedad');
+    if (state.anxiety >= 70) factors.push(t('ui.factor_anxiety', { value: Math.round(state.anxiety) }));
+    if (state.sleepiness >= 70) factors.push(t('ui.factor_sleepiness', { value: Math.round(state.sleepiness) }));
+    if (state.energy <= 25) factors.push(t('ui.factor_energy', { value: Math.round(state.energy) }));
+    if (state.hunger >= 70) factors.push(t('ui.factor_hunger', { value: Math.round(state.hunger) }));
+    if (state.shutdown >= 50) factors.push(t('ui.factor_shutdown', { value: Math.round(state.shutdown) }));
+    if (state.arousal >= 80 && state.anxiety >= 60) factors.push(t('ui.factor_overload'));
 
-    const cause = causes.length ? causes.join(' + ') : 'colapso sistemico';
-    const summary = `Salud fisica ${Math.round(state.physical_health)} · salud psicologica ${Math.round(state.psychological_health)}`;
+    const cause = causes.length ? causes.join(' + ') : t('ui.death_systemic');
+    const summary = t('ui.summaryLabel', { physical: Math.round(state.physical_health), psychological: Math.round(state.psychological_health) });
     return { cause, summary, factors };
 }
 
@@ -460,7 +590,7 @@ function updateDeathScreen(state, lastActions) {
     const actionsEl = $('death-last-actions');
 
     if (causeEl) {
-        causeEl.textContent = `Causa principal: ${report.cause}`;
+        causeEl.textContent = t('ui.causeLabel', { cause: report.cause });
     }
     if (summaryEl) {
         summaryEl.textContent = report.summary;
@@ -468,18 +598,18 @@ function updateDeathScreen(state, lastActions) {
     if (factorsEl) {
         if (report.factors.length) {
             factorsEl.innerHTML = `
-                <div class="death-section-label">factores contribuyentes</div>
+                <div class="death-section-label">${t('ui.contributors')}</div>
                 <ul class="death-list">${report.factors.map(f => `<li>${f}</li>`).join('')}</ul>`;
         } else {
             factorsEl.innerHTML = `
-                <div class="death-section-label">factores contribuyentes</div>
-                <div class="death-empty">No hubo una unica senal clara: el desgaste fue acumulativo.</div>`;
+                <div class="death-section-label">${t('ui.contributors')}</div>
+                <div class="death-empty">${t('ui.accumulatedWear')}</div>`;
         }
     }
     if (actionsEl) {
         const recent = lastActions.slice(-3).reverse();
         actionsEl.innerHTML = recent.length
-            ? `<div class="death-section-label">ultimas acciones</div><div class="death-chip-row">${recent.map(a => `<span class="death-chip">${a.replace(/_/g, ' ')}</span>`).join('')}</div>`
+            ? `<div class="death-section-label">${t('ui.lastActions')}</div><div class="death-chip-row">${recent.map(a => `<span class="death-chip">${actionLabel(a)}</span>`).join('')}</div>`
             : '';
     }
 }
@@ -501,6 +631,8 @@ function applyStateToUI(state, lastActions) {
     updateHUD(state);
     updateRecentActions(lastActions);
     updateGlobalStatePanel(state);
+    updateMonsterStatusBanner(state);
+    updateGlobalVisualState(state);
     if (audioStarted && !audioMuted) updateAudio(state);
 }
 
@@ -514,7 +646,7 @@ function renderCategories() {
         return `
           <button class="category-btn" onclick="selectCategory('${cat}')">
             <span class="cat-emoji">${meta.emoji}</span>
-            <span class="cat-label">${meta.label}</span>
+            <span class="cat-label">${t(meta.labelKey)}</span>
             <span style="font-size:10px;color:rgba(255,255,255,0.35)">${available}/${acts.length}</span>
           </button>`;
     }).join('');
@@ -529,12 +661,12 @@ function selectCategory(cat) {
 function renderActionList(actions, showBack) {
     const area  = $('action-area');
     const back  = showBack
-        ? `<button class="back-btn" onclick="renderCategories()">← categories</button>`
+        ? `<button class="back-btn" onclick="renderCategories()">${t('ui.backCategories')}</button>`
         : '';
     const items = actions.map(a => `
         <div class="action-item ${a.can_apply ? '' : 'disabled'}"
              onclick="${a.can_apply ? `applyAction('${a.name}')` : ''}">
-            <div class="action-name">${a.name.replace(/_/g, ' ')}</div>
+            <div class="action-name">${a.display_name || actionLabel(a.name)}</div>
             <div class="action-desc">${a.description}</div>
             ${renderActionMeta(a)}
             ${!a.can_apply && a.blocked_reason ? `<div class="action-blocked-reason">⚠ ${a.blocked_reason}</div>` : ''}
@@ -634,7 +766,7 @@ function renderPinnedSection() {
         .map(a => `
             <div class="action-item pinned ${a.can_apply ? '' : 'disabled'}"
                  onclick="${a.can_apply ? `applyAction('${a.name}')` : ''}">
-                <div class="action-name">${a.name.replace(/_/g, ' ')}</div>
+                <div class="action-name">${a.display_name || actionLabel(a.name)}</div>
                 <div class="action-desc">${a.description}</div>
                 ${renderActionMeta(a)}
                 ${!a.can_apply && a.blocked_reason ? `<div class="action-blocked-reason">⚠ ${a.blocked_reason}</div>` : ''}
@@ -648,8 +780,62 @@ function dismissOnboarding() {
     if (overlay) overlay.classList.add('hidden');
 }
 
+function updateStaticTranslations() {
+    document.documentElement.lang = getLocale();
+    document.title = t('ui.title');
+    $('onboarding-kicker').textContent = t('ui.onboardingKicker');
+    $('onboarding-title').textContent = t('ui.onboardingTitle');
+    $('onboarding-copy-1').textContent = t('ui.onboardingCopy1');
+    $('onboarding-immediate').textContent = t('ui.onboardingImmediate');
+    $('onboarding-immediate-copy').textContent = t('ui.onboardingImmediateCopy');
+    $('onboarding-persistent').textContent = t('ui.onboardingPersistent');
+    $('onboarding-persistent-copy').textContent = t('ui.onboardingPersistentCopy');
+    $('onboarding-copy-2').textContent = t('ui.onboardingCopy2');
+    $('start-btn').textContent = t('ui.start');
+    $('reset-btn').textContent = t('ui.reset');
+    $('lab-btn').textContent = t('ui.lab');
+    $('lang-label').textContent = t('ui.langLabel');
+    $('search-input').placeholder = t('ui.searchPlaceholder');
+    $('legend-immediate').textContent = t('ui.immediate');
+    $('legend-persistent').textContent = t('ui.persistent');
+    $('death-msg').textContent = t('ui.deathTitle');
+    $('death-reset').textContent = t('ui.deathReset');
+
+    const hudMap = {
+        hunger: 'ui.hud_hunger',
+        anxiety: 'ui.hud_anxiety',
+        sleepiness: 'ui.hud_sleepiness',
+        psych: 'ui.hud_psychological_health',
+        physical: 'ui.hud_physical_health',
+        energy: 'ui.hud_energy',
+    };
+    Object.entries(hudMap).forEach(([suffix, key]) => {
+        const node = document.querySelector(`[data-tip-id="${suffix}"]`);
+        if (node) node.dataset.tip = t(key);
+    });
+}
+
+function changeLocale(locale) {
+    setLocale(locale);
+    updateStaticTranslations();
+    allEvents = events_by_category();
+    if (currentState) applyStateToUI(currentState, _lastActions.slice(-3));
+    if ($('death-screen') && !$('death-screen').classList.contains('hidden') && currentState) {
+        updateDeathScreen(currentState, _lastActions);
+    }
+    const q = $('search-input').value.trim();
+    if (q) {
+        $('search-input').dispatchEvent(new Event('input'));
+    } else if (currentCategory) {
+        renderActionList(allEvents[currentCategory] || [], true);
+    } else {
+        renderCategories();
+    }
+}
+
 // ── Init ───────────────────────────────────────────────────────
 function init() {
+    setLocale(getInitialLocale());
     // Read pinned actions from URL ?pinned=action1,action2,...
     const params = new URLSearchParams(window.location.search);
     const pinnedParam = params.get('pinned');
@@ -662,6 +848,8 @@ function init() {
     _lastActions = [];
     allEvents = events_by_category();
     applyStateToUI(human_to_dict(_human), []);
+    $('lang-select').value = getLocale();
+    updateStaticTranslations();
     renderCategories();
     if (!onboardingDismissed) {
         const overlay = $('onboarding-overlay');
@@ -872,6 +1060,7 @@ document.addEventListener('click', () => $('hud').classList.remove('open'));
 // Expose globals for inline onclick handlers (ES modules don't auto-expose to window)
 window.resetGame       = resetGame;
 window.dismissOnboarding = dismissOnboarding;
+window.changeLocale = changeLocale;
 window.toggleAudio     = toggleAudio;
 window.applyAction     = applyAction;
 window.selectCategory  = selectCategory;

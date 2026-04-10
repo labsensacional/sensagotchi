@@ -163,6 +163,37 @@ html, body {
     transition: background-image 0.7s ease;
 }
 
+#avatar-section::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.35s ease, background 0.35s ease;
+}
+
+#avatar-section.state-stress-low::after {
+    opacity: 1;
+    background: radial-gradient(circle at 50% 35%, rgba(255, 159, 67, 0.10), transparent 45%);
+}
+
+#avatar-section.state-stress-high::after {
+    opacity: 1;
+    background:
+        radial-gradient(circle at 50% 35%, rgba(214, 48, 49, 0.16), transparent 48%),
+        linear-gradient(180deg, rgba(214,48,49,0.08), transparent 60%);
+}
+
+#avatar-section.state-ssri::after {
+    opacity: 1;
+    background: linear-gradient(180deg, rgba(116, 185, 255, 0.10), transparent 55%);
+}
+
+#avatar-section.state-shutdown::after {
+    opacity: 1;
+    background: linear-gradient(180deg, rgba(99, 110, 114, 0.18), rgba(10,10,20,0.08));
+}
+
 /* ── HUD (top-right corner) ──────────────────────────────── */
 
 #hud {
@@ -621,6 +652,30 @@ html, body {
 }
 #lab-btn:active { background: rgba(255,255,255,0.1); }
 
+#lang-wrap {
+    position: absolute;
+    top: 70px;
+    right: 10px;
+    z-index: 12;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 8px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: rgba(0,0,0,0.45);
+    color: var(--text-muted);
+    font-size: 11px;
+}
+
+#lang-select {
+    background: transparent;
+    border: none;
+    color: var(--text);
+    font-size: 11px;
+    outline: none;
+}
+
 /* ── Utility ─────────────────────────────────────────────── */
 .hidden { display: none !important; }
 
@@ -766,6 +821,55 @@ html, body {
     justify-content: center;
     z-index: 6;   /* above avatar (z-index 5) */
     pointer-events: none;
+}
+
+#monster-status-banner {
+    position: absolute;
+    left: 50%;
+    top: 66px;
+    transform: translateX(-50%);
+    z-index: 7;
+    min-width: 220px;
+    max-width: min(88vw, 420px);
+    text-align: center;
+    pointer-events: none;
+}
+
+#monster-status-banner.banner-stress,
+#monster-status-banner.banner-ssri,
+#monster-status-banner.banner-shutdown {
+    padding: 9px 12px;
+    border-radius: 14px;
+    border: 1px solid rgba(255,255,255,0.12);
+    backdrop-filter: blur(8px);
+    box-shadow: 0 8px 30px rgba(0,0,0,0.18);
+}
+
+#monster-status-banner.banner-stress {
+    background: rgba(110, 32, 18, 0.48);
+}
+
+#monster-status-banner.banner-ssri {
+    background: rgba(20, 60, 105, 0.44);
+}
+
+#monster-status-banner.banner-shutdown {
+    background: rgba(45, 52, 54, 0.50);
+}
+
+.monster-status-kicker {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.46);
+}
+
+.monster-status-copy {
+    margin-top: 3px;
+    font-size: 13px;
+    line-height: 1.3;
+    color: rgba(255,255,255,0.88);
 }
 
 .event-notif {

@@ -35,23 +35,23 @@
 <div id="app">
     <div id="onboarding-overlay">
         <div id="onboarding-card">
-            <div class="overlay-kicker">sensagotchi</div>
-            <h1 id="onboarding-title">armá tu bichito y leé el estado del sistema</h1>
-            <p class="overlay-copy">
+            <div class="overlay-kicker" id="onboarding-kicker">sensagotchi</div>
+            <h1 id="onboarding-title">armá tu monstruito y leé el estado del sistema</h1>
+            <p class="overlay-copy" id="onboarding-copy-1">
                 Esto no es un tamagotchi clásico: estás manejando un sistema nervioso. Algunas cosas pegan
                 ahora mismo; otras cambian el contexto y te condicionan por bastante tiempo.
             </p>
             <div class="intro-points">
                 <div class="intro-point">
-                    <span class="intro-badge immediate">acción inmediata</span>
-                    <p>Da alivio, placer o desgaste rápido. Mirá cómo se mueven las barras y qué te devuelve el bichito.</p>
+                    <span class="intro-badge immediate" id="onboarding-immediate">acción inmediata</span>
+                    <p id="onboarding-immediate-copy">Da alivio, placer o desgaste rápido. Mirá cómo se mueven las barras y qué te devuelve el monstruito.</p>
                 </div>
                 <div class="intro-point">
-                    <span class="intro-badge persistent">estado global</span>
-                    <p>Cambia el contexto de fondo. Puede hacer que otras acciones funcionen mejor o peor más adelante.</p>
+                    <span class="intro-badge persistent" id="onboarding-persistent">estado global</span>
+                    <p id="onboarding-persistent-copy">Cambia el contexto de fondo. Puede hacer que otras acciones funcionen mejor o peor más adelante.</p>
                 </div>
             </div>
-            <p class="overlay-copy compact">
+            <p class="overlay-copy compact" id="onboarding-copy-2">
                 Objetivo base: mantener salud física y psicológica sin perder de vista hambre, energía, ansiedad y sueño.
             </p>
             <button id="start-btn" onclick="dismissOnboarding()">empezar</button>
@@ -64,42 +64,49 @@
 
         <button id="reset-btn" onclick="resetGame()">↺ reset</button>
         <a id="lab-btn" href="emotions-expression-test.html">lab →</a>
+        <label id="lang-wrap">
+            <span id="lang-label">idioma</span>
+            <select id="lang-select" onchange="changeLocale(this.value)">
+                <option value="es">ES</option>
+                <option value="en">EN</option>
+            </select>
+        </label>
 
         <!-- HUD bars: tap anywhere to toggle detail panel -->
         <div id="hud" onclick="this.classList.toggle('open'); event.stopPropagation()">
             <div class="hud-row">
-                <span class="hud-label" data-tip="hunger">🍔</span>
+                <span class="hud-label" data-tip="hunger" data-tip-id="hunger">🍔</span>
                 <div class="hud-track">
                     <div class="hud-fill" id="hud-hunger" style="--color:#e67e22"></div>
                 </div>
             </div>
             <div class="hud-row">
-                <span class="hud-label" data-tip="anxiety">😰</span>
+                <span class="hud-label" data-tip="anxiety" data-tip-id="anxiety">😰</span>
                 <div class="hud-track">
                     <div class="hud-fill" id="hud-anxiety" style="--color:#ee5a24"></div>
                 </div>
             </div>
             <div class="hud-row">
-                <span class="hud-label" data-tip="sleepiness">😴</span>
+                <span class="hud-label" data-tip="sleepiness" data-tip-id="sleepiness">😴</span>
                 <div class="hud-track">
                     <div class="hud-fill" id="hud-sleepiness" style="--color:#636e72"></div>
                 </div>
             </div>
             <div class="hud-spacer"></div>
             <div class="hud-row">
-                <span class="hud-label" data-tip="psychological health">🧠</span>
+                <span class="hud-label" data-tip="psychological health" data-tip-id="psych">🧠</span>
                 <div class="hud-track">
                     <div class="hud-fill" id="hud-psych" style="--color:#a29bfe"></div>
                 </div>
             </div>
             <div class="hud-row">
-                <span class="hud-label" data-tip="physical health">❤️</span>
+                <span class="hud-label" data-tip="physical health" data-tip-id="physical">❤️</span>
                 <div class="hud-track">
                     <div class="hud-fill" id="hud-physical" style="--color:#ff7675"></div>
                 </div>
             </div>
             <div class="hud-row">
-                <span class="hud-label" data-tip="energy">⚡</span>
+                <span class="hud-label" data-tip="energy" data-tip-id="energy">⚡</span>
                 <div class="hud-track">
                     <div class="hud-fill" id="hud-energy" style="--color:#00b894"></div>
                 </div>
@@ -110,6 +117,7 @@
 
         <!-- Event notification overlay -->
         <div id="event-notification"></div>
+        <div id="monster-status-banner"></div>
 
         <!-- Avatar (p5.js procedural monster) -->
         <div class="avatar-container anim-idle" id="avatar-container">
@@ -135,8 +143,8 @@
                    spellcheck="false">
         </div>
         <div id="action-legend">
-            <span class="legend-pill immediate">acción inmediata</span>
-            <span class="legend-pill persistent">estado global</span>
+            <span class="legend-pill immediate" id="legend-immediate">acción inmediata</span>
+            <span class="legend-pill persistent" id="legend-persistent">estado global</span>
         </div>
         <div id="global-state-panel"></div>
         <div id="action-area">
@@ -161,7 +169,11 @@
 <script src="monster.js"></script>
 <script src="main.js" type="module"></script>
 <script>
-  if ('serviceWorker' in navigator) {
+  if (
+    'serviceWorker' in navigator &&
+    location.hostname !== 'localhost' &&
+    location.hostname !== '127.0.0.1'
+  ) {
     navigator.serviceWorker.register('/sw.js');
   }
 </script>
