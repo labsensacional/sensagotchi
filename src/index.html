@@ -64,13 +64,6 @@
 
         <button id="reset-btn" onclick="resetGame()">↺ reset</button>
         <a id="lab-btn" href="emotions-expression-test.html">lab →</a>
-        <label id="lang-wrap">
-            <span id="lang-label">idioma</span>
-            <select id="lang-select" onchange="changeLocale(this.value)">
-                <option value="es">ES</option>
-                <option value="en">EN</option>
-            </select>
-        </label>
 
         <!-- HUD bars: tap anywhere to toggle detail panel -->
         <div id="hud" onclick="this.classList.toggle('open'); event.stopPropagation()">
@@ -141,6 +134,13 @@
                    autocomplete="off"
                    autocorrect="off"
                    spellcheck="false">
+            <label id="lang-wrap">
+                <span id="lang-label">idioma</span>
+                <select id="lang-select" onchange="changeLocale(this.value)">
+                    <option value="es">ES</option>
+                    <option value="en">EN</option>
+                </select>
+            </label>
         </div>
         <div id="action-legend">
             <span class="legend-pill immediate" id="legend-immediate">acción inmediata</span>
