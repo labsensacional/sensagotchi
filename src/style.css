@@ -29,6 +29,121 @@ html, body {
     height: 100dvh;   /* dynamic viewport height for mobile browsers */
 }
 
+/* ── Intro overlay ───────────────────────────────────────── */
+
+#onboarding-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 250;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background:
+        radial-gradient(circle at top, rgba(79, 172, 254, 0.18), transparent 36%),
+        linear-gradient(180deg, rgba(10,10,20,0.96), rgba(5,5,10,0.98));
+    backdrop-filter: blur(10px);
+}
+
+#onboarding-card {
+    width: min(100%, 460px);
+    border: 1px solid rgba(255,255,255,0.14);
+    border-radius: 18px;
+    padding: 22px 18px 18px;
+    background: rgba(12, 16, 27, 0.92);
+    box-shadow: 0 18px 60px rgba(0,0,0,0.45);
+}
+
+.overlay-kicker {
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.45);
+    margin-bottom: 10px;
+}
+
+#onboarding-title {
+    font-size: 28px;
+    line-height: 1.05;
+    font-weight: 700;
+    max-width: 10ch;
+}
+
+.overlay-copy {
+    margin-top: 12px;
+    font-size: 14px;
+    line-height: 1.45;
+    color: rgba(255,255,255,0.76);
+}
+
+.overlay-copy.compact {
+    color: rgba(255,255,255,0.58);
+}
+
+.intro-points {
+    display: grid;
+    gap: 10px;
+    margin-top: 16px;
+}
+
+.intro-point {
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 14px;
+    padding: 12px;
+    background: rgba(255,255,255,0.04);
+}
+
+.intro-point p {
+    margin-top: 8px;
+    font-size: 13px;
+    line-height: 1.4;
+    color: rgba(255,255,255,0.72);
+}
+
+.intro-badge,
+.legend-pill,
+.action-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    border-radius: 999px;
+    padding: 4px 9px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.intro-badge.immediate,
+.legend-pill.immediate,
+.action-pill.immediate {
+    background: rgba(78, 205, 196, 0.14);
+    border: 1px solid rgba(78, 205, 196, 0.28);
+    color: #81ecec;
+}
+
+.intro-badge.persistent,
+.legend-pill.persistent,
+.action-pill.persistent {
+    background: rgba(255, 159, 67, 0.14);
+    border: 1px solid rgba(255, 159, 67, 0.28);
+    color: #ffbe76;
+}
+
+#start-btn {
+    width: 100%;
+    margin-top: 18px;
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 14px;
+    background: linear-gradient(180deg, rgba(255,255,255,0.12), rgba(255,255,255,0.06));
+    color: rgba(255,255,255,0.92);
+    padding: 14px 16px;
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    cursor: pointer;
+}
+
 /* ── Avatar section (top ~60%) ───────────────────────────── */
 
 #avatar-section {
@@ -295,6 +410,13 @@ html, body {
     border-bottom: 1px solid var(--border);
 }
 
+#action-legend {
+    display: flex;
+    gap: 8px;
+    padding: 8px 12px 0;
+    flex-wrap: wrap;
+}
+
 #search-input {
     width: 100%;
     background: rgba(255,255,255,0.08);
@@ -371,7 +493,21 @@ html, body {
     letter-spacing: 0.01em;
 }
 .action-desc { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
-.action-dur  { font-size: 10px; color: rgba(255,255,255,0.28); margin-top: 1px; }
+
+.action-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+    flex-wrap: wrap;
+}
+
+.action-dur  {
+    font-size: 10px;
+    color: rgba(255,255,255,0.32);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
 
 /* ── Back button ─────────────────────────────────────────── */
 
@@ -450,8 +586,15 @@ html, body {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 16px;
+    gap: 12px;
     text-align: center;
+    width: min(100%, 460px);
+    margin: 0 20px;
+    padding: 24px 20px;
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 20px;
+    background: rgba(10, 12, 18, 0.92);
+    box-shadow: 0 20px 80px rgba(0,0,0,0.45);
 }
 
 #death-skull {
@@ -466,11 +609,72 @@ html, body {
 }
 
 #death-msg {
-    font-size: 28px;
+    font-size: 24px;
     font-weight: 700;
     letter-spacing: 0.12em;
     text-transform: uppercase;
     color: rgba(255, 255, 255, 0.85);
+}
+
+#death-cause {
+    font-size: 18px;
+    font-weight: 700;
+    line-height: 1.3;
+    color: #ff7675;
+}
+
+#death-summary {
+    font-size: 13px;
+    color: rgba(255,255,255,0.68);
+}
+
+#death-factors,
+#death-last-actions {
+    width: 100%;
+}
+
+.death-section-label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.4);
+    margin-bottom: 8px;
+}
+
+.death-list {
+    list-style: none;
+    display: grid;
+    gap: 6px;
+    text-align: left;
+}
+
+.death-list li,
+.death-empty {
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 12px;
+    padding: 9px 10px;
+    background: rgba(255,255,255,0.04);
+    font-size: 13px;
+    line-height: 1.35;
+    color: rgba(255,255,255,0.78);
+}
+
+.death-chip-row {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.death-chip {
+    border-radius: 999px;
+    padding: 6px 10px;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.12);
+    font-size: 12px;
+    color: rgba(255,255,255,0.82);
+    text-transform: capitalize;
 }
 
 #death-reset {

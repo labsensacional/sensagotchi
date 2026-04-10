@@ -15,6 +15,7 @@ let currentCategory = null;    // null = show category grid
 let _pinnedActions = [];        // action ids pinned via URL ?pinned= param
 let audioStarted   = false;
 let audioMuted     = false;
+let onboardingDismissed = false;
 
 // ── Category metadata ──────────────────────────────────────────
 const CAT_META = {
@@ -27,6 +28,12 @@ const CAT_META = {
     drugs:     { emoji: '💊', label: 'drugs'     },
     medical:   { emoji: '🏥', label: 'medical'   },
     life:      { emoji: '🌍', label: 'life'      },
+};
+
+const PERSISTENT_CATEGORIES = new Set(['life', 'medical']);
+const ACTION_LABELS = {
+    immediate: 'accion inmediata',
+    persistent: 'estado global',
 };
 
 // ── Background mapping (action → bg key) ──────────────────────
@@ -208,12 +215,27 @@ function events_by_category() {
             name,
             description:    event.description,
             duration:       event.duration,
+            category:       cat,
             can_apply:      event.can_apply(_human),
             blocked_reason: typeof reason === 'function' ? reason(_human) : (reason || ''),
             note:           typeof noteFn === 'function' ? noteFn(_human) : null,
         });
     }
     return cats;
+}
+
+function getActionMode(action) {
+    return PERSISTENT_CATEGORIES.has(action.category) ? 'persistent' : 'immediate';
+}
+
+function renderActionMeta(action) {
+    const mode = getActionMode(action);
+    const durationLabel = action.duration >= 1 ? `${action.duration}h de efecto` : `${Math.round(action.duration * 60)}m`;
+    return `
+        <div class="action-meta">
+            <span class="action-pill ${mode}">${ACTION_LABELS[mode]}</span>
+            <span class="action-dur">${durationLabel}</span>
+        </div>`;
 }
 
 function updateBackground(actionName) {
@@ -280,9 +302,65 @@ function buildActionSummary(before, after) {
     return changes.map(x => `${x.k} ${x.d > 0 ? '+' : ''}${x.d}`).join('  ·  ');
 }
 
+function explainDeath(state) {
+    const causes = [];
+    const factors = [];
+
+    if (state.physical_health <= 0) {
+        causes.push('fallo de salud fisica');
+    }
+    if (state.psychological_health <= 0) {
+        causes.push('colapso de salud psicologica');
+    }
+
+    if (state.anxiety >= 70) factors.push(`ansiedad extrema (${Math.round(state.anxiety)})`);
+    if (state.sleepiness >= 70) factors.push(`agotamiento y sueño acumulado (${Math.round(state.sleepiness)})`);
+    if (state.energy <= 25) factors.push(`energia casi agotada (${Math.round(state.energy)})`);
+    if (state.hunger >= 70) factors.push(`hambre alta (${Math.round(state.hunger)})`);
+    if (state.shutdown >= 50) factors.push(`shutdown elevado (${Math.round(state.shutdown)})`);
+    if (state.arousal >= 80 && state.anxiety >= 60) factors.push('sobrecarga entre arousal alto y ansiedad');
+
+    const cause = causes.length ? causes.join(' + ') : 'colapso sistemico';
+    const summary = `Salud fisica ${Math.round(state.physical_health)} · salud psicologica ${Math.round(state.psychological_health)}`;
+    return { cause, summary, factors };
+}
+
+function updateDeathScreen(state, lastActions) {
+    const report = explainDeath(state);
+    const causeEl = $('death-cause');
+    const summaryEl = $('death-summary');
+    const factorsEl = $('death-factors');
+    const actionsEl = $('death-last-actions');
+
+    if (causeEl) {
+        causeEl.textContent = `Causa principal: ${report.cause}`;
+    }
+    if (summaryEl) {
+        summaryEl.textContent = report.summary;
+    }
+    if (factorsEl) {
+        if (report.factors.length) {
+            factorsEl.innerHTML = `
+                <div class="death-section-label">factores contribuyentes</div>
+                <ul class="death-list">${report.factors.map(f => `<li>${f}</li>`).join('')}</ul>`;
+        } else {
+            factorsEl.innerHTML = `
+                <div class="death-section-label">factores contribuyentes</div>
+                <div class="death-empty">No hubo una unica senal clara: el desgaste fue acumulativo.</div>`;
+        }
+    }
+    if (actionsEl) {
+        const recent = lastActions.slice(-3).reverse();
+        actionsEl.innerHTML = recent.length
+            ? `<div class="death-section-label">ultimas acciones</div><div class="death-chip-row">${recent.map(a => `<span class="death-chip">${a.replace(/_/g, ' ')}</span>`).join('')}</div>`
+            : '';
+    }
+}
+
 // ── Death screen ───────────────────────────────────────────
 function checkDeath(state) {
     if (state.physical_health <= 0 || state.psychological_health <= 0) {
+        updateDeathScreen(state, _lastActions);
         const el = $('death-screen');
         if (el) el.classList.remove('hidden');
         return true;
@@ -330,7 +408,7 @@ function renderActionList(actions, showBack) {
              onclick="${a.can_apply ? `applyAction('${a.name}')` : ''}">
             <div class="action-name">${a.name.replace(/_/g, ' ')}</div>
             <div class="action-desc">${a.description}</div>
-            <div class="action-dur">${a.duration}h</div>
+            ${renderActionMeta(a)}
             ${!a.can_apply && a.blocked_reason ? `<div class="action-blocked-reason">⚠ ${a.blocked_reason}</div>` : ''}
             ${a.note ? `<div class="action-note">⚠ ${a.note}</div>` : ''}
         </div>`).join('');
@@ -427,10 +505,16 @@ function renderPinnedSection() {
                  onclick="${a.can_apply ? `applyAction('${a.name}')` : ''}">
                 <div class="action-name">${a.name.replace(/_/g, ' ')}</div>
                 <div class="action-desc">${a.description}</div>
-                <div class="action-dur">${a.duration}h</div>
+                ${renderActionMeta(a)}
                 ${!a.can_apply && a.blocked_reason ? `<div class="action-blocked-reason">⚠ ${a.blocked_reason}</div>` : ''}
             </div>`).join('');
     return `<div class="pinned-header">📌 Sesión</div><div class="action-list pinned-list">${items}</div><hr class="pinned-divider">`;
+}
+
+function dismissOnboarding() {
+    onboardingDismissed = true;
+    const overlay = $('onboarding-overlay');
+    if (overlay) overlay.classList.add('hidden');
 }
 
 // ── Init ───────────────────────────────────────────────────────
@@ -448,6 +532,10 @@ function init() {
     allEvents = events_by_category();
     applyStateToUI(human_to_dict(_human), []);
     renderCategories();
+    if (!onboardingDismissed) {
+        const overlay = $('onboarding-overlay');
+        if (overlay) overlay.classList.remove('hidden');
+    }
 }
 
 // =============================================================
@@ -652,6 +740,7 @@ document.addEventListener('click', () => $('hud').classList.remove('open'));
 
 // Expose globals for inline onclick handlers (ES modules don't auto-expose to window)
 window.resetGame       = resetGame;
+window.dismissOnboarding = dismissOnboarding;
 window.toggleAudio     = toggleAudio;
 window.applyAction     = applyAction;
 window.selectCategory  = selectCategory;

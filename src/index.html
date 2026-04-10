@@ -33,6 +33,30 @@
 </head>
 <body>
 <div id="app">
+    <div id="onboarding-overlay">
+        <div id="onboarding-card">
+            <div class="overlay-kicker">sensagotchi</div>
+            <h1 id="onboarding-title">armá tu bichito y leé el estado del sistema</h1>
+            <p class="overlay-copy">
+                Esto no es un tamagotchi clásico: estás manejando un sistema nervioso. Algunas cosas pegan
+                ahora mismo; otras cambian el contexto y te condicionan por bastante tiempo.
+            </p>
+            <div class="intro-points">
+                <div class="intro-point">
+                    <span class="intro-badge immediate">acción inmediata</span>
+                    <p>Da alivio, placer o desgaste rápido. Mirá cómo se mueven las barras y qué te devuelve el bichito.</p>
+                </div>
+                <div class="intro-point">
+                    <span class="intro-badge persistent">estado global</span>
+                    <p>Cambia el contexto de fondo. Puede hacer que otras acciones funcionen mejor o peor más adelante.</p>
+                </div>
+            </div>
+            <p class="overlay-copy compact">
+                Objetivo base: mantener salud física y psicológica sin perder de vista hambre, energía, ansiedad y sueño.
+            </p>
+            <button id="start-btn" onclick="dismissOnboarding()">empezar</button>
+        </div>
+    </div>
 
     <!-- ── Avatar section ──────────────────────────────── -->
     <div id="avatar-section">
@@ -110,6 +134,10 @@
                    autocorrect="off"
                    spellcheck="false">
         </div>
+        <div id="action-legend">
+            <span class="legend-pill immediate">acción inmediata</span>
+            <span class="legend-pill persistent">estado global</span>
+        </div>
         <div id="action-area">
             <!-- populated by JS -->
         </div>
@@ -119,7 +147,11 @@
     <div id="death-screen" class="hidden">
         <div id="death-content">
             <div id="death-skull">☠</div>
-            <div id="death-msg">you died</div>
+            <div id="death-msg">forensic report</div>
+            <div id="death-cause"></div>
+            <div id="death-summary"></div>
+            <div id="death-factors"></div>
+            <div id="death-last-actions"></div>
             <button id="death-reset" onclick="resetGame()">↺ start over</button>
         </div>
     </div>
