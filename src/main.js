@@ -198,6 +198,9 @@ function human_to_dict(h) {
         psychological_health: Math.round(h.psychological_health * 10) / 10,
         sexual_inhibition:    Math.round(h.sexual_inhibition * 10) / 10,
         shutdown:             Math.round(h.shutdown * 10) / 10,
+        life_stress:          Math.round(h.life_stress * 10) / 10,
+        ssri_level:           Math.round(h.ssri_level * 10) / 10,
+        testosterone:         Math.round(h.testosterone * 10) / 10,
         liking_score:         Math.round(h.liking_score() * 10) / 10,
         wanting_score:        Math.round(h.wanting_score() * 10) / 10,
         is_viable:            h.is_viable(),
@@ -302,6 +305,130 @@ function buildActionSummary(before, after) {
     return changes.map(x => `${x.k} ${x.d > 0 ? '+' : ''}${x.d}`).join('  ·  ');
 }
 
+function getActiveGlobalStates(state) {
+    const items = [];
+
+    if (state.life_stress >= 15) {
+        const severity = state.life_stress >= 60 ? 'alto' : 'medio';
+        items.push({
+            tone: 'persistent',
+            label: `estrés de fondo ${severity}`,
+            detail: 'drena absorción y salud psicológica con el tiempo',
+        });
+    }
+
+    if (state.ssri_level >= 10) {
+        items.push({
+            tone: 'persistent',
+            label: 'ssri activo',
+            detail: 'amortigua respuesta sexual y parte del pico dopaminérgico',
+        });
+    }
+
+    if (state.testosterone >= 65) {
+        items.push({
+            tone: 'immediate',
+            label: 'testosterona alta',
+            detail: 'sube drive y vuelve el sistema más reactivo',
+        });
+    } else if (state.testosterone <= 35) {
+        items.push({
+            tone: 'immediate',
+            label: 'testosterona baja',
+            detail: 'baja impulso, arousal y margen para ciertas acciones',
+        });
+    }
+
+    if (state.shutdown >= 35) {
+        items.push({
+            tone: 'persistent',
+            label: 'shutdown activo',
+            detail: 'aplana deseo y placer aunque sigas actuando',
+        });
+    }
+
+    return items;
+}
+
+function updateGlobalStatePanel(state) {
+    const el = $('global-state-panel');
+    if (!el) return;
+
+    const active = getActiveGlobalStates(state);
+    if (!active.length) {
+        el.innerHTML = `<div class="global-state-empty">sin estados globales dominantes por ahora</div>`;
+        return;
+    }
+
+    el.innerHTML = `
+        <div class="global-state-header">contexto activo</div>
+        <div class="global-state-list">
+            ${active.map(item => `
+                <div class="global-state-item">
+                    <span class="global-state-pill ${item.tone}">${item.label}</span>
+                    <div class="global-state-copy">${item.detail}</div>
+                </div>`).join('')}
+        </div>`;
+}
+
+function getContextReminder(state) {
+    const active = getActiveGlobalStates(state);
+    if (!active.length) return null;
+    return `Contexto activo: ${active[0].label}.`;
+}
+
+function buildNarrativeFeedback(action, before, after, finalState) {
+    const mode = getActionMode(action);
+    const leads = [];
+    const costs = [];
+
+    const delta = (key) => (after[key] ?? 0) - (before[key] ?? 0);
+
+    if (delta('anxiety') <= -8) leads.push('bajó la ansiedad');
+    if (delta('anxiety') >= 8) costs.push('te activó de más');
+
+    if (delta('energy') <= -8) costs.push('te drenó energía');
+    if (delta('energy') >= 8) leads.push('te levantó la energía');
+
+    if (delta('sleepiness') >= 10) costs.push('te dejó con sueño');
+    if (delta('sleepiness') <= -10) leads.push('te despejó');
+
+    if (delta('hunger') <= -10) leads.push('te sacó el hambre');
+    if (delta('hunger') >= 10) costs.push('te abrió el apetito');
+
+    if (delta('arousal') >= 12) leads.push('subió el arousal');
+    if (delta('absorption') >= 10) leads.push('te metió más en la experiencia');
+    if (delta('prefrontal') <= -10) costs.push('te soltó el control');
+
+    if (delta('psychological_health') >= 3) leads.push('te estabilizó un poco');
+    if (delta('psychological_health') <= -3) costs.push('te pegó en la salud psicológica');
+    if (delta('physical_health') >= 3) leads.push('mejoró el cuerpo');
+    if (delta('physical_health') <= -3) costs.push('castigó el cuerpo');
+
+    const intro = mode === 'persistent'
+        ? 'Cambió el contexto de fondo.'
+        : 'Impacto inmediato.';
+
+    const best = leads.slice(0, 2).join(' y ');
+    const worst = costs.slice(0, 2).join(' y ');
+
+    let sentence = intro;
+    if (best) sentence += ` ${best.charAt(0).toUpperCase() + best.slice(1)}.`;
+    if (worst) sentence += ` Pero ${worst}.`;
+
+    if (!best && !worst) {
+        const fallback = buildActionSummary(before, after);
+        if (fallback) sentence += ` Cambios principales: ${fallback}.`;
+    }
+
+    const reminder = getContextReminder(finalState);
+    if (reminder && mode !== 'persistent') {
+        sentence += ` ${reminder}`;
+    }
+
+    return sentence;
+}
+
 function explainDeath(state) {
     const causes = [];
     const factors = [];
@@ -373,6 +500,7 @@ function applyStateToUI(state, lastActions) {
     updateAvatar(state);
     updateHUD(state);
     updateRecentActions(lastActions);
+    updateGlobalStatePanel(state);
     if (audioStarted && !audioMuted) updateAudio(state);
 }
 
@@ -449,9 +577,12 @@ function applyAction(name) {
 
     const notifications = drainNotifications();
     if (notifications.length > 0) {
-        notifications.forEach(n => showEventNotification(n.text, n.type));
+        const primary = notifications[notifications.length - 1];
+        const reminder = getContextReminder(human_to_dict(_human));
+        const text = reminder ? `${primary.text} · ${reminder}` : primary.text;
+        showEventNotification(text, primary.type);
     } else {
-        const msg = buildActionSummary(before, afterEvent);
+        const msg = buildNarrativeFeedback(event, before, afterEvent, human_to_dict(_human));
         if (msg) showEventNotification(msg, 'action');
     }
 

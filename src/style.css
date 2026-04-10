@@ -417,6 +417,67 @@ html, body {
     flex-wrap: wrap;
 }
 
+#global-state-panel {
+    padding: 8px 12px 0;
+}
+
+.global-state-header {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.38);
+    margin-bottom: 8px;
+}
+
+.global-state-list {
+    display: grid;
+    gap: 8px;
+}
+
+.global-state-item {
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 12px;
+    padding: 10px;
+    background: rgba(255,255,255,0.035);
+}
+
+.global-state-copy {
+    margin-top: 7px;
+    font-size: 12px;
+    line-height: 1.35;
+    color: rgba(255,255,255,0.68);
+}
+
+.global-state-pill {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 999px;
+    padding: 4px 8px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.global-state-pill.immediate {
+    background: rgba(78, 205, 196, 0.14);
+    border: 1px solid rgba(78, 205, 196, 0.28);
+    color: #81ecec;
+}
+
+.global-state-pill.persistent {
+    background: rgba(255, 159, 67, 0.14);
+    border: 1px solid rgba(255, 159, 67, 0.28);
+    color: #ffbe76;
+}
+
+.global-state-empty {
+    font-size: 12px;
+    color: rgba(255,255,255,0.42);
+    padding: 4px 0 2px;
+}
+
 #search-input {
     width: 100%;
     background: rgba(255,255,255,0.08);
@@ -708,9 +769,10 @@ html, body {
 }
 
 .event-notif {
-    font-size: 20px;
+    font-size: 16px;
     font-weight: 700;
-    letter-spacing: 0.05em;
+    line-height: 1.35;
+    letter-spacing: 0.02em;
     text-align: center;
     padding: 10px 22px;
     border-radius: 12px;
@@ -720,6 +782,7 @@ html, body {
     color: var(--notif-color, rgba(255,255,255,0.92));
     text-shadow: 0 2px 10px rgba(0, 0, 0, 0.9);
     animation: notif-show 3s ease forwards;
+    max-width: min(92vw, 620px);
 }
 
 @keyframes notif-show {
