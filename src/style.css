@@ -300,23 +300,25 @@ html, body {
 
 #hud-detail {
     position: absolute;
-    top: 0;
-    right: calc(100% + 8px);
+    top: calc(100% + 8px);
+    right: 0;
     background: rgba(10, 10, 20, 0.88);
     border: 1px solid rgba(255,255,255,0.12);
     border-radius: 10px;
     padding: 10px 12px;
-    width: 190px;
+    width: min(220px, calc(100vw - 32px));
+    max-height: min(50vh, 360px);
+    overflow-y: auto;
     backdrop-filter: blur(6px);
     pointer-events: none;
     opacity: 0;
-    transform: translateX(4px);
+    transform: translateY(-4px);
     transition: opacity 0.18s ease, transform 0.18s ease;
 }
 
 #hud.open #hud-detail {
     opacity: 1;
-    transform: translateX(0);
+    transform: translateY(0);
 }
 
 .detail-group { margin-bottom: 8px; }
@@ -341,7 +343,7 @@ html, body {
 .detail-key {
     font-size: 10px;
     color: rgba(255,255,255,0.55);
-    width: 58px;
+    width: 72px;
     flex-shrink: 0;
     text-align: right;
 }
@@ -364,9 +366,17 @@ html, body {
 .detail-val {
     font-size: 10px;
     color: rgba(255,255,255,0.6);
-    width: 22px;
+    width: 28px;
     text-align: right;
     font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 720px) {
+    #hud-detail {
+        right: -2px;
+        width: min(220px, calc(100vw - 24px));
+        max-height: 42vh;
+    }
 }
 
 /* ── Avatar ──────────────────────────────────────────────── */

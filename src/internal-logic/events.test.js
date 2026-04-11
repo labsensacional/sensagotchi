@@ -568,6 +568,35 @@ describe('DrugEvents', () => {
     expect(events['caffeine'].can_apply(h)).toBe(true);
   });
 
+  it('test_amphetamines_are_not_overly_punitive_to_health', () => {
+    const h = new Human();
+    h.energy = 60;
+    const initial_physical = h.physical_health;
+    const initial_anxiety = h.anxiety;
+
+    apply_event(h, 'amphetamines', events['amphetamines']);
+
+    expect(initial_physical - h.physical_health).toBeLessThanOrEqual(1.3);
+    expect(h.anxiety - initial_anxiety).toBeLessThanOrEqual(14.1);
+  });
+
+  it('test_lower_impact_drugs_have_lighter_physical_costs', () => {
+    const cheap_cost_drugs = ['poppers', 'alcohol', 'nitrous'];
+
+    for (const drug_name of cheap_cost_drugs) {
+      const h = new Human();
+      h.energy = 60;
+      const initial_physical = h.physical_health;
+
+      apply_event(h, drug_name, events[drug_name]);
+
+      expect(initial_physical - h.physical_health).toBeLessThanOrEqual(
+        1.1,
+        `${drug_name} should not chunk physical health too hard`
+      );
+    }
+  });
+
   it('test_drug_tolerance_builds', () => {
     const h = new Human();
     h.energy = 80;
@@ -899,6 +928,29 @@ describe('TraitDynamics', () => {
 
   afterEach(() => {
     setEnableProbabilistic(origProb);
+  });
+
+  it('test_physical_health_recovers_at_a_playable_rate_when_needs_are_covered', () => {
+    const h = new Human();
+    h.physical_health = 40;
+    h.hunger = 25;
+    h.energy = 70;
+    h.sleepiness = 20;
+
+    decay_only(h, 8);
+
+    expect(h.physical_health).toBeGreaterThan(47);
+  });
+
+  it('test_exercise_can_meanfully_restore_physical_health', () => {
+    const h = new Human();
+    h.energy = 70;
+    h.physical_health = 45;
+    h.time_since_exercise = 48;
+
+    apply_event(h, 'exercise', events['exercise']);
+
+    expect(h.physical_health).toBeGreaterThanOrEqual(57);
   });
 
   it('test_high_t_decays_toward_higher_arousal', () => {

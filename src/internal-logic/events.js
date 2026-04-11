@@ -634,7 +634,7 @@ export function apply_decay(human, dt) {
 
   // === D. Consequences of extreme states ===
   if (human.dopamine > 85) {
-    human.psychological_health -= (human.dopamine - 85) * 0.1 * dt;
+    human.psychological_health -= (human.dopamine - 85) * 0.18 * dt;
   }
   if (human.anxiety > 70) {
     human.psychological_health -= (human.anxiety - 70) * 0.1 * dt;
@@ -652,14 +652,21 @@ export function apply_decay(human, dt) {
     human.physical_health -= (human.endorphins - 80) * 0.08 * dt;
   }
   // === E. Passive health regeneration ===
-  // Physical health recovers slowly when basic needs are met
-  if (human.hunger < 75 && human.energy > 20 && human.sleepiness < 75) {
-    const regen = 1.0 - (human.hunger / 75) * 0.3 - ((75 - human.energy) / 55) * 0.3;
+  // Physical health recovers at a usable pace when basic needs are reasonably covered.
+  if (human.hunger < 80 && human.energy > 18 && human.sleepiness < 80) {
+    const regen =
+      1.45 -
+      (human.hunger / 80) * 0.28 -
+      ((80 - human.energy) / 62) * 0.24 -
+      (human.sleepiness / 80) * 0.18;
     human.physical_health += Math.max(0, regen) * dt;
   }
   // Psychological health recovers slowly when mind is calm
-  if (human.anxiety < 55 && human.shutdown < 35) {
-    const psych_regen = 0.8 * (1.0 - human.anxiety / 55 * 0.5);
+  if (human.anxiety < 55 && human.shutdown < 35 && human.life_stress < 25 && human.dopamine < 75) {
+    const psych_regen =
+      0.45 *
+      (1.0 - human.anxiety / 55 * 0.55) *
+      (1.0 - human.life_stress / 25 * 0.35);
     human.psychological_health += Math.max(0, psych_regen) * dt;
   }
 
@@ -1224,7 +1231,7 @@ export function make_events() {
   function poppers(h, eff = 1.0) {
     h.prefrontal -= 25;           // cost: not scaled
     h.energy -= 3;                // cost: not scaled
-    h.physical_health -= 2;       // cost: not scaled
+    h.physical_health -= 1;       // cost: not scaled
     h.arousal += 25 * eff;
     h.absorption += 20 * eff;
     h.vasopressin += 15 * eff;
@@ -1262,7 +1269,7 @@ export function make_events() {
   );
 
   function tobacco(h, eff = 1.0) {
-    h.physical_health -= 1;       // cost: not scaled
+    h.physical_health -= 0.5;     // cost: not scaled
     nt_boost(h, 'dopamine', 8 * eff);
     h.arousal += 5 * eff;
     h.anxiety -= 8 * eff;
@@ -1301,7 +1308,7 @@ export function make_events() {
     h.prefrontal -= 25;           // cost: not scaled
     h.energy -= 10;               // cost: not scaled
     h.sleepiness += 15;           // cost: sedation
-    h.physical_health -= 2;       // cost: not scaled
+    h.physical_health -= 1;       // cost: not scaled
     nt_boost(h, 'dopamine', 15 * eff);
     h.anxiety -= 25 * eff;
     h.absorption += 10 * eff;
@@ -1326,8 +1333,8 @@ export function make_events() {
   );
 
   function amphetamines(h, eff = 1.0) {
-    h.anxiety += 20;              // cost: not scaled
-    h.physical_health -= 3;       // cost: not scaled
+    h.anxiety += 14;              // cost: not scaled
+    h.physical_health -= 1.25;    // cost: not scaled
     h.hunger -= 20;               // appetite suppression
     h.sleepiness -= 30;           // can't sleep
     nt_boost(h, 'dopamine', 35 * eff);
@@ -1349,7 +1356,7 @@ export function make_events() {
   function cocaine(h, eff = 1.0) {
     h.anxiety += 15;              // cost: not scaled
     h.prefrontal -= 10;           // cost: not scaled
-    h.physical_health -= 3;       // cost: not scaled
+    h.physical_health -= 1.5;     // cost: not scaled
     nt_boost(h, 'dopamine', 45 * eff);
     h.arousal += 20 * eff;
     h.energy += 15;
@@ -1373,7 +1380,7 @@ export function make_events() {
   function nitrous(h, eff = 1.0) {
     h.prefrontal -= 20;           // cost: not scaled
     h.energy -= 2;                // cost: not scaled
-    h.physical_health -= 2;       // cost: oxygen deprivation
+    h.physical_health -= 1;       // cost: oxygen deprivation
     nt_boost(h, 'endorphins', 20 * eff);
     h.absorption += 25 * eff;
   }
@@ -1483,7 +1490,7 @@ export function make_events() {
     h.energy -= 20;               // cost: not scaled — takes effort
     h.hunger += 20;               // cost: burns calories
     h.sleepiness += 10;           // cost: tires you out
-    h.physical_health += 8 * eff;
+    h.physical_health += 12 * eff;
     nt_boost(h, 'endorphins', 20 * eff);
     nt_boost(h, 'dopamine', 10 * eff);
     nt_boost(h, 'serotonin', 8 * eff);
