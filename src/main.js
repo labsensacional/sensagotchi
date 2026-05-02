@@ -6,6 +6,8 @@ import { Human, create_human_from_preset, get_human_presets } from './internal-l
 import { make_events, apply_event, apply_decay, drainNotifications } from './internal-logic/events.js';
 import { actionLabel, eventDisplay, getInitialLocale, getLocale, setLocale, t, translateNotification } from './i18n.js';
 
+const expressiveEngine = window.ExpressiveEngine;
+
 // ── State ──────────────────────────────────────────────────────
 let currentState   = null;
 let _human         = null;
@@ -31,6 +33,7 @@ const CAT_META = {
     drugs:     { emoji: '💊', labelKey: 'ui.category_drugs'     },
     // 'medical' and 'life' removed — global context set via presets only
 };
+const DEFAULT_CATEGORY = Object.keys(CAT_META)[0];
 
 const PERSISTENT_CATEGORIES = new Set();
 const GLOBAL_VISUAL_CLASSES = [
@@ -71,16 +74,6 @@ const ACTION_BG = {
     exercise:             'rest',
 };
 
-// ── Avatar animation logic ─────────────────────────────────────
-function getAnimation(s) {
-    if (s.shutdown   > 40)                     return 'barely-moving';
-    if (s.sleepiness > 60)                     return 'droop';
-    if (s.anxiety    > 60)                     return 'shake';
-    if (s.liking_score > 65 && s.arousal > 55) return 'bounce';
-    if (s.liking_score > 48)                   return 'sway';
-    return 'idle';
-}
-
 // ── DOM helpers ────────────────────────────────────────────────
 function $(id) { return document.getElementById(id); }
 
@@ -89,12 +82,15 @@ function updateAvatar(s) {
     if (window.updateMonsterFromApp) window.updateMonsterFromApp(s);
 
     // Swap CSS animation class on the container (body motion)
-    const anim      = getAnimation(s);
+    const motion    = expressiveEngine.getMotionProfile(s);
     const container = $('avatar-container');
     const animClasses = ['anim-idle','anim-sway','anim-bounce',
                          'anim-shake','anim-droop','anim-barely-moving'];
     container.classList.remove(...animClasses);
-    container.classList.add('anim-' + anim);
+    container.classList.add(motion.className);
+    Object.entries(motion.cssVars).forEach(([key, value]) => {
+        container.style.setProperty(key, value);
+    });
 }
 
 function updateThoughtCloud(id, show, critical, emojis) {
@@ -116,44 +112,19 @@ function updateThoughtCloud(id, show, critical, emojis) {
 }
 
 function updateStateCallouts(state) {
-    // ── Thought clouds for hunger and energy ──────────────────
-    const hungerHigh = state.hunger >= 68;
-    const hungerCrit = state.hunger >= 82;
-    updateThoughtCloud(
-        'thought-hunger', hungerHigh, hungerCrit,
-        hungerCrit ? '🍕 🍔 🌮' : '🍕 🍔'
-    );
+    const cues = expressiveEngine.getOverlayCues(state);
+    cues.thoughtClouds.forEach((cloud) => {
+        updateThoughtCloud(cloud.id, cloud.show, cloud.critical, cloud.emojis);
+    });
 
-    const energyLow  = state.energy <= 30;
-    const energyCrit = state.energy <= 18;
-    updateThoughtCloud(
-        'thought-energy', energyLow, energyCrit,
-        energyCrit ? '🛏️ 💤 😴' : '🛏️ 💤'
-    );
-
-    // ── Health alert chips (keep existing pill style) ─────────
     const el = $('state-callouts');
     if (!el) return;
+    if (!cues.callouts.length) { el.innerHTML = ''; return; }
 
-    const chips = [];
-    const worstHealth = Math.min(state.physical_health, state.psychological_health);
-    if (state.psychological_health <= 38) {
-        chips.push({ icon: '🧠', label: t('ui.callout_psych'), critical: state.psychological_health <= 24 });
-    }
-    if (state.physical_health <= 38) {
-        chips.push({ icon: '❤️', label: t('ui.callout_physical'), critical: state.physical_health <= 24 });
-    }
-
-    if (!chips.length) { el.innerHTML = ''; return; }
-
-    const limited = chips
-        .sort((a, b) => Number(b.critical) - Number(a.critical))
-        .slice(0, worstHealth <= 24 ? 2 : 1);
-
-    el.innerHTML = limited.map(item => `
+    el.innerHTML = cues.callouts.map(item => `
         <div class="state-callout ${item.critical ? 'critical' : ''}">
             <span>${item.icon}</span>
-            <span>${item.label}</span>
+            <span>${t(item.labelKey)}</span>
         </div>`).join('');
 }
 
@@ -493,28 +464,7 @@ function updateGlobalVisualState(state) {
     const avatarSection = $('avatar-section');
     if (!avatarSection) return;
     avatarSection.classList.remove(...GLOBAL_VISUAL_CLASSES);
-
-    if (state.life_stress >= 60) {
-        avatarSection.classList.add('state-stress-high');
-    } else if (state.life_stress >= 15) {
-        avatarSection.classList.add('state-stress-low');
-    }
-
-    if (state.ssri_level >= 10) {
-        avatarSection.classList.add('state-ssri');
-    }
-
-    if (state.shutdown >= 35) {
-        avatarSection.classList.add('state-shutdown');
-    }
-
-    if (state.energy <= 30) {
-        avatarSection.classList.add('state-low-energy');
-    }
-
-    if (Math.min(state.physical_health, state.psychological_health) <= 38) {
-        avatarSection.classList.add('state-health-critical');
-    }
+    avatarSection.classList.add(...expressiveEngine.getVisualStateClasses(state));
 }
 
 function classifyPleasure(before, after) {
@@ -722,25 +672,36 @@ function applyStateToUI(state, lastActions) {
 }
 
 // ── Action area rendering ──────────────────────────────────────
-function renderCategories() {
-    currentCategory = null;
-    const area = $('action-area');
+function ensureCurrentCategory() {
+    if (currentCategory && CAT_META[currentCategory]) return currentCategory;
+    currentCategory = DEFAULT_CATEGORY;
+    return currentCategory;
+}
+
+function renderCategoryBar() {
+    const bar = $('category-bar');
+    if (!bar) return;
+    const selected = ensureCurrentCategory();
     const cells = Object.entries(CAT_META).map(([cat, meta]) => {
-        const acts = allEvents[cat] || [];
-        const available = acts.filter(a => a.can_apply).length;
         return `
-          <button class="category-btn" onclick="selectCategory('${cat}')">
+          <button class="category-btn category-tab ${cat === selected ? 'active' : ''}" onclick="selectCategory('${cat}')">
             <span class="cat-emoji">${meta.emoji}</span>
             <span class="cat-label">${t(meta.labelKey)}</span>
-            <span style="font-size:10px;color:rgba(255,255,255,0.35)">${available}/${acts.length}</span>
           </button>`;
     }).join('');
-    area.innerHTML = renderPinnedSection() + `<div class="category-grid">${cells}</div>`;
+    bar.innerHTML = `<div class="category-strip">${cells}</div>`;
+}
+
+function renderCategories() {
+    ensureCurrentCategory();
+    renderCategoryBar();
+    renderActionList(allEvents[currentCategory] || [], false);
 }
 
 function selectCategory(cat) {
     currentCategory = cat;
-    renderActionList(allEvents[cat] || [], true);
+    renderCategoryBar();
+    renderActionList(allEvents[cat] || [], false);
 }
 
 function renderActionList(actions, showBack) {
@@ -763,9 +724,10 @@ function renderActionList(actions, showBack) {
 // ── Search ─────────────────────────────────────────────────────
 $('search-input').addEventListener('input', function () {
     const q = this.value.toLowerCase().trim();
+    renderCategoryBar();
     if (!q) {
-        currentCategory ? renderActionList(allEvents[currentCategory] || [], true)
-                        : renderCategories();
+        ensureCurrentCategory();
+        renderActionList(allEvents[currentCategory] || [], false);
         return;
     }
     const results = [];
@@ -818,10 +780,10 @@ function applyAction(name) {
     const q = $('search-input').value.trim();
     if (q) {
         $('search-input').dispatchEvent(new Event('input'));
-    } else if (currentCategory) {
-        renderActionList(allEvents[currentCategory] || [], true);
     } else {
-        renderCategories();
+        renderCategoryBar();
+        ensureCurrentCategory();
+        renderActionList(allEvents[currentCategory] || [], false);
     }
 }
 
@@ -835,7 +797,7 @@ function resetGame() {
     _human = createHumanForCurrentPreset();
     _lastActions = [];
     allEvents = events_by_category();
-    currentCategory = null;
+    currentCategory = DEFAULT_CATEGORY;
     applyStateToUI(human_to_dict(_human), []);
     $('bg').style.backgroundImage = "url('backgrounds/default.jpg')";
     renderCategories();
@@ -879,11 +841,9 @@ function selectPreset(presetId) {
     _human = createHumanForCurrentPreset();
     allEvents = events_by_category();
     applyStateToUI(human_to_dict(_human), _lastActions.slice(-3));
-    if (!currentCategory) {
-        renderCategories();
-    } else {
-        renderActionList(allEvents[currentCategory] || [], true);
-    }
+    renderCategoryBar();
+    ensureCurrentCategory();
+    renderActionList(allEvents[currentCategory] || [], false);
     renderPresetOptions();
 }
 
@@ -942,10 +902,10 @@ function changeLocale(locale) {
     const q = $('search-input').value.trim();
     if (q) {
         $('search-input').dispatchEvent(new Event('input'));
-    } else if (currentCategory) {
-        renderActionList(allEvents[currentCategory] || [], true);
     } else {
-        renderCategories();
+        renderCategoryBar();
+        ensureCurrentCategory();
+        renderActionList(allEvents[currentCategory] || [], false);
     }
 }
 
@@ -963,6 +923,7 @@ function init() {
     _events = make_events();
     _lastActions = [];
     allEvents = events_by_category();
+    currentCategory = DEFAULT_CATEGORY;
     applyStateToUI(human_to_dict(_human), []);
     $('lang-select').value = getLocale();
     updateStaticTranslations();

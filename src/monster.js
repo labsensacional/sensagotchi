@@ -5,6 +5,11 @@
 
 'use strict';
 
+const expressiveEngine = window.ExpressiveEngine;
+if (!expressiveEngine) {
+  throw new Error('monster.js requires expressive-engine.js to be loaded first');
+}
+
 // ── Palette ──────────────────────────────────────────────────────────────────
 const TEAL       = [72, 185, 185];
 const TEAL_DARK  = [45, 148, 155];
@@ -823,23 +828,7 @@ function renderMonster(e) {
 }
 
 // ── Internal state defaults (from human.py baselines) ────────────────────────
-const DEFAULT_STATE = {
-  dopamine:    50,
-  oxytocin:    30,
-  endorphins:  20,
-  serotonin:   50,
-  prolactin:   10,
-  vasopressin: 20,
-  arousal:     20,
-  prefrontal:  50,
-  sleepiness:  20,
-  anxiety:     30,
-  absorption:  30,
-  hunger:      20,
-  energy:      80,
-  shutdown:     0,
-  anandamide:  30,
-};
+const DEFAULT_STATE = expressiveEngine.DEFAULT_EXPRESSIVE_STATE;
 
 // ── State presets (expressed in internal-logic terms) ────────────────────────
 const STATE_PRESETS = {
@@ -976,221 +965,10 @@ const SLIDER_GROUPS = [
   { label: 'Neurotransmitters', keys: ['dopamine','oxytocin','endorphins','serotonin','prolactin','vasopressin'] },
   { label: 'Physiological',     keys: ['arousal','energy','sleepiness'] },
   { label: 'Mental',            keys: ['anxiety','absorption','prefrontal','hunger'] },
+  { label: 'Health',            keys: ['physical_health','psychological_health'] },
+  { label: 'Context',           keys: ['life_stress','ssri_level'] },
   { label: 'Special',           keys: ['shutdown'] },
 ];
-
-// ── State → Visual params mapping (Darwin physiological model) ────────────────
-function stateToParams(s) {
-  const cl = (x, lo = 0, hi = 1) => Math.max(lo, Math.min(hi, x));
-
-  // Normalize all to 0–1
-  const da  = s.dopamine             / 100;
-  const ox  = s.oxytocin             / 100;
-  const en  = s.endorphins           / 100;
-  const se  = s.serotonin            / 100;
-  const pr  = s.prolactin            / 100;
-  const va  = s.vasopressin          / 100;
-  const ar  = s.arousal              / 100;
-  const pf  = s.prefrontal           / 100;
-  const sl  = s.sleepiness           / 100;
-  const an  = s.anxiety              / 100;
-  const ab  = s.absorption           / 100;
-  const hu  = s.hunger               / 100;
-  const eg  = s.energy               / 100;
-  const sh  = s.shutdown             / 100;
-  const ph  = (s.physical_health     ?? 80) / 100;
-  const psh = (s.psychological_health ?? 70) / 100;
-  const health = Math.min(ph, psh);  // worst-case health composite
-  const ana = (s.anandamide ?? 30)   / 100;
-
-  // Derived composites
-  // liking: mirrors liking_score() — dynamic peaks + emotional tone floor
-  // emotional_tone: slow background (serotonin, oxytocin, anandamide)
-  const emotional_tone = se * 0.35 + ox * 0.30 + ana * 0.35;
-  const liking = cl(en * 0.65 + da * 0.12 + emotional_tone * 0.30);
-  // tone: muscle activation (arousal/vasopressin/energy raise it; shutdown/sleep/prolactin lower it)
-  const tone   = cl(ar * 0.35 + va * 0.25 + eg * 0.20 - sh * 0.90 - sl * 0.45 - pr * 0.25 + 0.25);
-  // threat: appraisal of danger (anxiety + low energy + low prefrontal control)
-  const threat = cl(an * 0.50 + (1 - eg) * 0.30 + (1 - pf) * 0.20);
-
-  // Ahegao flag: computed early so lid_drop and pupil params can use it
-  // Peak arousal + high hedonic valence + high absorption + low prefrontal inhibition
-  const ahegao_flag = ar > 0.78 && liking > 0.72 && ab > 0.72 && pf < 0.32;
-
-  // ── Pose (Darwin: Useful Habits — muscle tone drives posture) ─────────────
-  let pose = 'neutral';
-  if (sh > 0.55 || (sl > 0.70 && eg < 0.28) || eg < 0.15) {
-    pose = 'postration';                          // collapse / exhaustion / no energy
-  } else if (threat > 0.58 && tone < 0.40) {
-    pose = 'contraction';                         // fearful curl
-  } else if (threat > 0.58 && tone > 0.52) {
-    pose = 'expansion';                           // aggressive expansion
-  } else if (va > 0.58 && an < 0.42 && tone > 0.55) {
-    pose = 'tension';                             // focused / determined
-  } else if (ar > 0.72 && an < 0.35 && liking > 0.52) {
-    pose = 'sobresalto';                          // excited / playful
-  }
-
-  // ── Body scale ────────────────────────────────────────────────────────────
-  const height_scale = cl(0.88 + tone * 0.20, 0.82, 1.10);
-  const width_scale  = (pose === 'postration')
-    ? cl(1.02 + sl * 0.06, 0.90, 1.10)
-    : cl(0.93 + liking * 0.10 - an * 0.04, 0.86, 1.06);
-
-  // ── Eyes (apertura de orificios) ──────────────────────────────────────────
-  // Wide open: arousal, anxiety (threat scanning)
-  // Drooping: sleepiness, prolactin (post-satiation), low arousal
-  // Health-glazed eyes: when health is critically low, eyes become heavy-lidded and pupils dim
-  const health_glaze = cl((0.30 - health) * 2.5, 0, 0.45);
-  const openness    = cl(0.55 + ar * 0.75 - sl * 0.60 + an * 0.40 - pr * 0.30 - health_glaze * 0.5);
-  const lid_drop    = cl(sl * 0.80 + pr * 0.45 - ar * 0.25 + health_glaze);
-  const pupil_scale = cl(0.60 + ar * 0.55 + an * 0.35 - pr * 0.30 - sl * 0.20 + da * 0.22 - health_glaze * 0.4);
-
-  // ── Eyebrows (muscle indicators) ─────────────────────────────────────────
-  // Darwin obliquity (angle > 0): inner corners UP = sadness / fearful suffering
-  // Frown (angle < 0): inner corners DOWN = aggression / anger / determination
-  let browAngle = 0;
-  if (threat > 0.45) {
-    const aggression = va - an * 0.3;
-    if (aggression > 0.35 && liking < 0.50) {
-      // Anger / aggression: brows press down
-      browAngle = cl(-aggression * 1.0, -0.90, 0);
-    } else {
-      // Fear / sadness: Darwin obliquity
-      browAngle = cl(threat * 0.80 - liking * 0.50, 0, 0.85);
-    }
-  } else if (liking < 0.30 && tone < 0.38) {
-    // Low affect, low tone: mild sad obliquity
-    browAngle = cl((0.30 - liking) * 1.2, 0, 0.65);
-  }
-  const h_offset = Math.round(cl(-56 + ar * 24 + (1 - eg) * 10, -60, -22));
-
-  // ── Mouth (dirección de comisuras) ───────────────────────────────────────
-  // Curve: positive = smile (liking), negative = frown (low liking / sadness)
-  // Zero-crossing at 0.35 so baseline liking (~0.33) ≈ straight mouth, not sad
-  const curve       = cl((liking - 0.35) * 1.60, -0.85, 0.85);
-  // ar*liking interaction: joy only opens mouth when both affect AND activation are present
-  // (calm-content stays closed; excited-happy opens wide like horny/edging)
-  const open_amount = cl(ar * 0.30 + an * 0.35 + threat * 0.15
-                       + liking * 0.15 + ar * liking * 0.80
-                       - pr * 0.55 - sl * 0.40);
-  // Fearful inverted triangle: contraction pose + anxiety + open
-  const open_up     = (pose === 'contraction') && an > 0.60 && open_amount > 0.22;
-  const show_teeth  = (liking > 0.58 && open_amount > 0.35) ||
-                      (an > 0.55 && va > 0.58 && open_amount > 0.30) ||
-                      (open_up && open_amount > 0.28) ||
-                      (an > 0.55 && open_amount > 0.40 && liking < 0.30); // anxious grimace
-  // O-surprised: high arousal, low threat, wide open, AND not in a joyful/positive state
-  const open_round  = ar > 0.68 && threat < 0.38 && open_amount > 0.48 && liking < 0.45;
-
-  // ── FX (Darwin: direct nervous system action = intensity overlays) ────────
-  const blush  = cl(liking * 0.90 + ox * 0.25 + ana * 0.08 - an * 0.15 - 0.28);
-  // spiky: horripilation — piel de gallina (anxiety + low prefrontal control)
-  const spiky  = cl(an * 0.60 + (1 - pf) * 0.15 + threat * 0.20 - liking * 0.30);
-  // sweat: anxiety + high arousal
-  const sweat  = cl(an * 0.50 + ar * 0.25 - eg * 0.20);
-  // pallor: shutdown + very low energy + extreme fear
-  const pallor = cl(sh * 0.65 + (1 - eg) * 0.20 + an * 0.35 - liking * 0.45);
-  // nostril_flare: +1 = dilated (anger/effort), -1 = wrinkling (disgust)
-  // Anger/vasopressin/threat → dilate; low liking + aversion → wrinkle
-  const disgust_signal = cl((1 - liking) * 0.55 + (1 - pf) * 0.20 - ar * 0.35);
-  const nostril_flare  = cl(va * 0.65 + threat * 0.30 - liking * 0.25, 0, 1)
-                        - disgust_signal * 0.70;
-  // zzz: floating sleep symbols — high sleepiness, low energy and arousal
-  const zzz   = cl(sl * 0.90 - eg * 0.40 - ar * 0.50);
-  // drool: hunger drool from mouth corner — high hunger, low prefrontal inhibition
-  const drool = cl(hu * 0.80 - pf * 0.35 - liking * 0.25);
-  // veins: subcutaneous veins visible when health is low (physical or psychological)
-  const veins = cl((0.45 - health) * 2.2);
-
-  // ── Duchenne additions ────────────────────────────────────────────────────
-  // Crow's feet: genuine smile = hedonic liking + visible smile signal
-  const smile_signal = cl(curve * 0.50 + open_amount * 0.80);
-  const eye_crinkle  = cl(liking * 1.60 - 0.65) * cl(smile_signal * 2.50 - 0.15, 0, 1);
-
-  // Forehead wrinkle type (Duchenne muscular anatomy):
-  //   suffering → corrugator obliquity (center-only transverse folds)
-  //   attention → frontalis raised (full-width arching lines, O-mouth surprise)
-  //   focus     → procerus descent (vertical glabellar lines, anger/effort)
-  let foreheadType      = null;
-  let foreheadIntensity = 0;
-  if (browAngle > 0.35) {
-    foreheadType      = 'suffering';
-    foreheadIntensity = cl((browAngle - 0.35) * 3.5);
-  } else if (open_round) {
-    foreheadType      = 'attention';
-    foreheadIntensity = cl(ar * 1.4 - 0.55);
-  } else if (browAngle < -0.35) {
-    foreheadType      = 'focus';
-    foreheadIntensity = cl((-browAngle - 0.35) * 5.0);
-  }
-
-  // Brow thickness: thin when relaxed, thick under muscular contraction
-  const brow_thickness = cl(4.0 + Math.abs(browAngle) * 6.0 + threat * 2.0, 4.0, 9.0);
-
-  // ── Gaze types ────────────────────────────────────────────────────────────
-  // Ahegao eye roll: pupil drifts upward (negative Y = up in screen coords)
-  const pupil_y = ahegao_flag ? cl(-(ar - 0.75) * 4.5, -1, 0) : 0;
-  // Eyes fully closed: extreme sleepiness or shutdown collapse
-  const eyes_closed = sl > 0.85 || sh > 0.70;
-
-  // ── Tongue ────────────────────────────────────────────────────────────────
-  // Out when: ahegao peak state OR max arousal + joy + open mouth
-  const tongue_out  = (ahegao_flag && open_amount > 0.40) ||
-                      (ar > 0.85 && liking > 0.72 && open_amount > 0.45 && !open_round);
-  // Side offset: ahegao gets a fixed lateral loll; otherwise centered
-  const tongue_side = ahegao_flag ? 0.80 : 0;
-
-  // Bruxism: jaw clenching / teeth grinding — high tension + suppressed open mouth
-  // Only visible in the closed-mouth rendering path (open_amount stays low)
-  // Represents controlled/suppressed anger or stress where the jaw tightens but mouth doesn't open
-  // Bruxism requires elevated vasopressin (jaw-tension stress hormone), not just anxiety.
-  // Sad/depressed states have va≈0.10–0.12, so the va-gate zeroes them out.
-  const bruxism = cl(va * 0.55 + an * 0.45 - liking * 0.60 - ar * 0.30)
-                * cl((va - 0.30) * 3, 0, 1);
-
-  // Lower teeth visible in full open-mouth snarl/peak states
-  // Angry growl (high vasopressin + high threat + open) or peak ecstasy (rolling)
-  const lower_teeth = show_teeth && (
-    (va > 0.55 && threat > 0.55 && open_amount > 0.45) ||   // aggressive snarl
-    (liking > 0.82 && ar > 0.78 && open_amount > 0.55)      // peak ecstasy / rolling
-  );
-
-  return {
-    body:  { pose, height_scale, width_scale },
-    eyes:  {
-      openness:    cl(openness, 0.30, 2.00),
-      pupil_scale: cl(pupil_scale, 0.50, 1.80),
-      lid_drop:    cl(lid_drop, 0.00, 0.75),
-      crinkle:     cl(eye_crinkle, 0, 1),
-      pupil_y:     cl(pupil_y, -1, 0),
-      eyes_closed,
-    },
-    brows: { angle: browAngle, h_offset, thickness: brow_thickness },
-    mouth: {
-      curve:       cl(curve, -0.85, 0.85),
-      open_amount: cl(open_amount, 0.00, 1.00),
-      show_teeth,
-      open_up,
-      open_round,
-      bruxism:     cl(bruxism, 0, 1),
-      lower_teeth,
-      tongue_out,
-      tongue_side: cl(tongue_side, 0, 1),
-    },
-    fx: {
-      blush:         cl(blush,  0, 1),
-      spiky:         cl(spiky,  0, 1),
-      sweat:         cl(sweat,  0, 1),
-      pallor:        cl(pallor, 0, 1),
-      nostril_flare: Math.max(-1, Math.min(1, nostril_flare)),
-      zzz:           cl(zzz,   0, 1),
-      drool:         cl(drool, 0, 1),
-      veins:         cl(veins,  0, 1),
-    },
-    forehead: { type: foreheadType, intensity: foreheadIntensity },
-  };
-}
 
 // ── Parameter interpolation ───────────────────────────────────────────────────
 function deepCopy(obj) { return JSON.parse(JSON.stringify(obj)); }
@@ -1216,7 +994,7 @@ function setup() {
   canvas.parent('avatar-canvas-wrap');
 
   monsterState  = deepCopy(DEFAULT_STATE);
-  targetParams  = stateToParams(monsterState);
+  targetParams  = expressiveEngine.stateToExpressionParams(monsterState);
   currentParams = deepCopy(targetParams);
   fromParams    = deepCopy(targetParams);
 
@@ -1248,9 +1026,10 @@ window.updateMonsterFromApp = function(appState) {
   if (!monsterState) return;
   const keys = ['dopamine','oxytocin','endorphins','serotonin','prolactin',
                 'vasopressin','arousal','prefrontal','sleepiness','anxiety',
-                'absorption','hunger','energy','shutdown','anandamide'];
+                'absorption','hunger','energy','shutdown','anandamide',
+                'physical_health','psychological_health','life_stress','ssri_level'];
   for (const k of keys) {
     if (appState[k] !== undefined) monsterState[k] = appState[k];
   }
-  animateTo(stateToParams(monsterState));
+  animateTo(expressiveEngine.stateToExpressionParams(monsterState));
 };

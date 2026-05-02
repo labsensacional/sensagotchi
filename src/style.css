@@ -568,41 +568,41 @@ html, body {
 
 @keyframes idle {
     0%, 100% { transform: translateX(-50%) translateY(0px);    }
-    50%       { transform: translateX(-50%) translateY(-4px);  }
+    50%       { transform: translateX(-50%) translateY(calc(var(--motion-rise, 4px) * -1));  }
 }
 @keyframes sway {
-    0%, 100% { transform: translateX(-50%) rotate(-3deg); }
-    50%       { transform: translateX(-50%) rotate( 3deg); }
+    0%, 100% { transform: translateX(-50%) rotate(calc(var(--motion-sway-rot, 3deg) * -1)); }
+    50%       { transform: translateX(-50%) rotate(var(--motion-sway-rot, 3deg)); }
 }
 @keyframes bounce {
     0%, 100% { transform: translateX(-50%) translateY(0px);   }
-    40%       { transform: translateX(-50%) translateY(-14px); }
-    60%       { transform: translateX(-50%) translateY(-10px); }
+    40%       { transform: translateX(-50%) translateY(calc(var(--motion-rise, 14px) * -1)); }
+    60%       { transform: translateX(-50%) translateY(calc(var(--motion-rise, 14px) * -0.72)); }
 }
 @keyframes shake {
     0%, 100% { transform: translateX(-50%) rotate(0deg);            }
-    15%       { transform: translateX(calc(-50% - 5px)) rotate(-2deg); }
-    30%       { transform: translateX(calc(-50% + 5px)) rotate( 2deg); }
-    45%       { transform: translateX(calc(-50% - 4px)) rotate(-1deg); }
-    60%       { transform: translateX(calc(-50% + 4px)) rotate( 1deg); }
-    75%       { transform: translateX(calc(-50% - 3px));              }
-    90%       { transform: translateX(calc(-50% + 2px));              }
+    15%       { transform: translateX(calc(-50% - var(--motion-shake-x, 5px))) rotate(calc(var(--motion-shake-rot, 2deg) * -1)); }
+    30%       { transform: translateX(calc(-50% + var(--motion-shake-x, 5px))) rotate(var(--motion-shake-rot, 2deg)); }
+    45%       { transform: translateX(calc(-50% - calc(var(--motion-shake-x, 5px) * 0.8))) rotate(calc(var(--motion-shake-rot, 2deg) * -0.5)); }
+    60%       { transform: translateX(calc(-50% + calc(var(--motion-shake-x, 5px) * 0.8))) rotate(calc(var(--motion-shake-rot, 2deg) * 0.5)); }
+    75%       { transform: translateX(calc(-50% - calc(var(--motion-shake-x, 5px) * 0.6))); }
+    90%       { transform: translateX(calc(-50% + calc(var(--motion-shake-x, 5px) * 0.4))); }
 }
 @keyframes droop {
     0%, 100% { transform: translateX(-50%) translateY(0px)  scaleY(1.00); }
-    50%       { transform: translateX(-50%) translateY(5px)  scaleY(0.97); }
+    50%       { transform: translateX(-50%) translateY(var(--motion-droop-y, 5px))  scaleY(var(--motion-droop-scale, 0.97)); }
 }
 @keyframes barely-moving {
     0%, 100% { transform: translateX(-50%) scale(1.00) translateY(0px);  }
-    50%       { transform: translateX(-50%) scale(0.99) translateY(2px); }
+    50%       { transform: translateX(-50%) scale(var(--motion-micro-scale, 0.99)) translateY(var(--motion-micro-y, 2px)); }
 }
 
-.anim-idle          { animation: idle         3.5s ease-in-out infinite; }
-.anim-sway          { animation: sway         2.2s ease-in-out infinite; }
-.anim-bounce        { animation: bounce       0.65s ease-in-out infinite; }
-.anim-shake         { animation: shake        0.45s ease-in-out infinite; }
-.anim-droop         { animation: droop        3.8s ease-in-out infinite; }
-.anim-barely-moving { animation: barely-moving 6s   ease-in-out infinite; }
+.anim-idle          { animation: idle var(--motion-duration, 3.5s) ease-in-out infinite; }
+.anim-sway          { animation: sway var(--motion-duration, 2.2s) ease-in-out infinite; }
+.anim-bounce        { animation: bounce var(--motion-duration, 0.65s) ease-in-out infinite; }
+.anim-shake         { animation: shake var(--motion-duration, 0.45s) ease-in-out infinite; }
+.anim-droop         { animation: droop var(--motion-duration, 3.8s) ease-in-out infinite; }
+.anim-barely-moving { animation: barely-moving var(--motion-duration, 6s) ease-in-out infinite; }
 
 #state-callouts {
     position: absolute;
@@ -802,6 +802,23 @@ html, body {
     padding: 8px 12px 0;
 }
 
+#category-bar {
+    flex-shrink: 0;
+    padding: 10px 12px 0;
+}
+
+.category-strip {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding-bottom: 2px;
+    scrollbar-width: none;
+}
+
+.category-strip::-webkit-scrollbar {
+    display: none;
+}
+
 .global-state-header {
     font-size: 10px;
     font-weight: 700;
@@ -910,6 +927,30 @@ html, body {
 .category-btn:active { background: rgba(255,255,255,0.18); transform: scale(0.96); }
 .cat-emoji { font-size: 22px; line-height: 1; }
 .cat-label { text-transform: capitalize; }
+
+.category-tab {
+    flex: 0 0 auto;
+    min-width: 0;
+    padding: 8px 10px;
+    border-radius: 999px;
+    flex-direction: row;
+    gap: 6px;
+}
+
+.category-tab.active {
+    background: rgba(129, 236, 236, 0.14);
+    border-color: rgba(129, 236, 236, 0.4);
+    box-shadow: 0 0 0 1px rgba(129, 236, 236, 0.12) inset;
+}
+
+.category-tab .cat-emoji {
+    font-size: 14px;
+}
+
+.category-tab .cat-label {
+    font-size: 12px;
+    line-height: 1;
+}
 
 /* ── Action list ─────────────────────────────────────────── */
 

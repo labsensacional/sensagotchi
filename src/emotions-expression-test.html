@@ -72,6 +72,94 @@
       height: 100% !important;
     }
 
+    #motion-stage {
+      position: relative;
+      width: 480px;
+      height: 480px;
+      max-width: calc(100vw - 48px);
+      display: grid;
+      place-items: center;
+      border-radius: 20px;
+      overflow: hidden;
+      background:
+        radial-gradient(circle at 50% 38%, rgba(72, 185, 185, 0.18), transparent 42%),
+        linear-gradient(180deg, #fbffff, #eef6f6);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+    }
+
+    #avatar-shell {
+      position: absolute;
+      inset: 0;
+    }
+
+    #avatar-container {
+      position: absolute;
+      left: 50%;
+      bottom: 36px;
+      transform: translateX(-50%);
+      width: 320px;
+      height: 320px;
+      --motion-duration: 3.5s;
+      --motion-rise: 4px;
+      --motion-sway-rot: 3deg;
+      --motion-shake-x: 5px;
+      --motion-shake-rot: 2deg;
+      --motion-droop-y: 5px;
+      --motion-droop-scale: 0.97;
+      --motion-micro-scale: 0.99;
+      --motion-micro-y: 2px;
+    }
+
+    #avatar-canvas-wrap {
+      width: 320px;
+      height: 320px;
+    }
+
+    #avatar-canvas-wrap canvas {
+      display: block !important;
+      width: 320px !important;
+      height: 320px !important;
+      background: transparent !important;
+    }
+
+    @keyframes idle {
+      0%, 100% { transform: translateX(-50%) translateY(0px); }
+      50% { transform: translateX(-50%) translateY(calc(var(--motion-rise, 4px) * -1)); }
+    }
+    @keyframes sway {
+      0%, 100% { transform: translateX(-50%) rotate(calc(var(--motion-sway-rot, 3deg) * -1)); }
+      50% { transform: translateX(-50%) rotate(var(--motion-sway-rot, 3deg)); }
+    }
+    @keyframes bounce {
+      0%, 100% { transform: translateX(-50%) translateY(0px); }
+      40% { transform: translateX(-50%) translateY(calc(var(--motion-rise, 14px) * -1)); }
+      60% { transform: translateX(-50%) translateY(calc(var(--motion-rise, 14px) * -0.72)); }
+    }
+    @keyframes shake {
+      0%, 100% { transform: translateX(-50%) rotate(0deg); }
+      15% { transform: translateX(calc(-50% - var(--motion-shake-x, 5px))) rotate(calc(var(--motion-shake-rot, 2deg) * -1)); }
+      30% { transform: translateX(calc(-50% + var(--motion-shake-x, 5px))) rotate(var(--motion-shake-rot, 2deg)); }
+      45% { transform: translateX(calc(-50% - calc(var(--motion-shake-x, 5px) * 0.8))) rotate(calc(var(--motion-shake-rot, 2deg) * -0.5)); }
+      60% { transform: translateX(calc(-50% + calc(var(--motion-shake-x, 5px) * 0.8))) rotate(calc(var(--motion-shake-rot, 2deg) * 0.5)); }
+      75% { transform: translateX(calc(-50% - calc(var(--motion-shake-x, 5px) * 0.6))); }
+      90% { transform: translateX(calc(-50% + calc(var(--motion-shake-x, 5px) * 0.4))); }
+    }
+    @keyframes droop {
+      0%, 100% { transform: translateX(-50%) translateY(0px) scaleY(1.00); }
+      50% { transform: translateX(-50%) translateY(var(--motion-droop-y, 5px)) scaleY(var(--motion-droop-scale, 0.97)); }
+    }
+    @keyframes barely-moving {
+      0%, 100% { transform: translateX(-50%) scale(1.00) translateY(0px); }
+      50% { transform: translateX(-50%) scale(var(--motion-micro-scale, 0.99)) translateY(var(--motion-micro-y, 2px)); }
+    }
+
+    .anim-idle { animation: idle var(--motion-duration, 3.5s) ease-in-out infinite; }
+    .anim-sway { animation: sway var(--motion-duration, 2.2s) ease-in-out infinite; }
+    .anim-bounce { animation: bounce var(--motion-duration, 0.65s) ease-in-out infinite; }
+    .anim-shake { animation: shake var(--motion-duration, 0.45s) ease-in-out infinite; }
+    .anim-droop { animation: droop var(--motion-duration, 3.8s) ease-in-out infinite; }
+    .anim-barely-moving { animation: barely-moving var(--motion-duration, 6s) ease-in-out infinite; }
+
     #presets {
       display: flex;
       flex-wrap: wrap;
@@ -100,7 +188,7 @@
     /* ── Right column: slider panel ── */
     #panel {
       flex: 1;
-      max-width: 340px;
+      max-width: 420px;
       max-height: calc(100vh - 48px);
       overflow-y: auto;
       background: white;
@@ -155,6 +243,91 @@
       font-variant-numeric: tabular-nums;
     }
 
+    .inspect-card {
+      border: 1px solid #e7eeee;
+      border-radius: 14px;
+      padding: 12px;
+      background: #f8fcfc;
+      display: grid;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .inspect-title {
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.10em;
+      color: #6b8f8f;
+    }
+
+    .inspect-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      font-size: 0.8rem;
+      color: #355;
+    }
+
+    .inspect-row code {
+      font-size: 0.76rem;
+      color: #2a7a7a;
+      background: #eaf6f6;
+      padding: 2px 6px;
+      border-radius: 999px;
+    }
+
+    .chip-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border-radius: 999px;
+      padding: 5px 9px;
+      font-size: 0.74rem;
+      background: #eaf6f6;
+      color: #246868;
+      border: 1px solid #d3ecec;
+    }
+
+    .cue-list, .catalog-list {
+      display: grid;
+      gap: 8px;
+    }
+
+    .cue-item, .catalog-item {
+      border: 1px solid #edf1f1;
+      border-radius: 12px;
+      padding: 10px;
+      background: #fff;
+      display: grid;
+      gap: 4px;
+    }
+
+    .cue-head, .catalog-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: baseline;
+      font-size: 0.8rem;
+      color: #233;
+    }
+
+    .cue-meta, .catalog-meta {
+      font-size: 0.72rem;
+      color: #678;
+    }
+
+    .muted {
+      font-size: 0.74rem;
+      color: #789;
+    }
+
     @media (max-width: 640px) {
       body {
         flex-direction: column;
@@ -191,16 +364,112 @@
       <a href="emotions-expression-test.html" class="active">lab</a>
     </nav>
     <h1>Sensagotchi — State Lab</h1>
-    <div id="avatar-canvas-wrap"></div>
+    <div id="motion-stage">
+      <div id="avatar-shell">
+        <div id="avatar-container">
+          <div id="avatar-canvas-wrap"></div>
+        </div>
+      </div>
+    </div>
     <div id="presets"></div>
   </div>
 
   <div id="panel"></div>
 
+  <script src="expressive-engine.js"></script>
   <script src="monster.js"></script>
   <script>
-    let state = { ...DEFAULT_STATE };
+    let state = { ...window.ExpressiveEngine.DEFAULT_EXPRESSIVE_STATE };
     const sliderEls = {};
+    const engine = window.ExpressiveEngine;
+
+    function applyMotionProfile() {
+      const motion = engine.getMotionProfile(state);
+      const container = document.getElementById('avatar-container');
+      container.className = motion.className;
+      for (const [key, value] of Object.entries(motion.cssVars)) {
+        container.style.setProperty(key, value);
+      }
+      return motion;
+    }
+
+    function renderInspector() {
+      let inspector = document.getElementById('engine-inspector');
+      if (!inspector) {
+        inspector = document.createElement('div');
+        inspector.id = 'engine-inspector';
+        panel.appendChild(inspector);
+      }
+
+      const motion = engine.getMotionProfile(state);
+      const visualClasses = engine.getVisualStateClasses(state);
+      const overlays = engine.getOverlayCues(state);
+      const soundCues = engine.getSoundCues(state);
+
+      inspector.innerHTML = `
+        <div class="inspect-card">
+          <div class="inspect-title">Active Motion</div>
+          <div class="inspect-row"><span>Preset</span><code>${motion.preset}</code></div>
+          <div class="inspect-row"><span>Intensity</span><code>${motion.intensity.toFixed(2)}</code></div>
+          <div class="muted">${motion.summary}</div>
+          <div class="chip-list">
+            ${Object.entries(motion.cssVars).map(([key, value]) => `<span class="chip">${key}: ${value}</span>`).join('')}
+          </div>
+        </div>
+
+        <div class="inspect-card">
+          <div class="inspect-title">Active Sound Cues</div>
+          <div class="cue-list">
+            ${soundCues.length ? soundCues.map(cue => `
+              <div class="cue-item">
+                <div class="cue-head"><strong>${cue.label}</strong><code>${cue.family}</code></div>
+                <div class="cue-meta">intensity ${cue.intensity.toFixed(2)} · priority ${cue.priority} · cooldown ${cue.cooldown_ms}ms</div>
+                <div class="muted">${cue.reason}</div>
+              </div>
+            `).join('') : `<div class="muted">No strong sound cue is active for this state.</div>`}
+          </div>
+        </div>
+
+        <div class="inspect-card">
+          <div class="inspect-title">Visual Layer</div>
+          <div class="chip-list">
+            ${(visualClasses.length ? visualClasses : ['none']).map(cls => `<span class="chip">${cls}</span>`).join('')}
+          </div>
+          <div class="muted">Thought clouds: ${overlays.thoughtClouds.filter(item => item.show).map(item => item.id).join(', ') || 'none'}</div>
+          <div class="muted">Callouts: ${overlays.callouts.map(item => item.labelKey).join(', ') || 'none'}</div>
+        </div>
+
+        <div class="inspect-card">
+          <div class="inspect-title">Motion Catalog</div>
+          <div class="catalog-list">
+            ${Object.entries(engine.MOTION_PRESET_LIBRARY).map(([id, meta]) => `
+              <div class="catalog-item">
+                <div class="catalog-head"><strong>${meta.label}</strong><code>${id}</code></div>
+                <div class="catalog-meta">${meta.summary}</div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+
+        <div class="inspect-card">
+          <div class="inspect-title">Sound Catalog</div>
+          <div class="catalog-list">
+            ${Object.entries(engine.SOUND_CUE_LIBRARY).map(([id, meta]) => `
+              <div class="catalog-item">
+                <div class="catalog-head"><strong>${meta.label}</strong><code>${id}</code></div>
+                <div class="catalog-meta">${meta.family} · ${meta.summary}</div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `;
+    }
+
+    function syncState() {
+      applyMotionProfile();
+      renderInspector();
+      updateMonsterFromApp(state);
+    }
 
     // ── Build slider panel ────────────────────────────────────────────────────
     const panel = document.getElementById('panel');
@@ -232,7 +501,7 @@
           state[key] = Number(input.value);
           valEl.textContent = input.value;
           document.querySelectorAll('#presets button').forEach(b => b.classList.remove('active'));
-          updateMonsterFromApp(state);
+          syncState();
         });
 
         row.appendChild(label);
@@ -256,7 +525,7 @@
           el.input.value    = state[key];
           el.valEl.textContent = state[key];
         }
-        updateMonsterFromApp(state);
+        syncState();
       });
       presetsEl.appendChild(btn);
     }
@@ -264,7 +533,7 @@
     // ── Initial render after p5 setup() has run ───────────────────────────────
     window.addEventListener('load', () => {
       presetsEl.querySelector('button').classList.add('active');
-      updateMonsterFromApp(state);
+      syncState();
     });
   </script>
 </body>
