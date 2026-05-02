@@ -46,7 +46,7 @@ html, body {
 }
 
 #onboarding-card {
-    width: min(100%, 460px);
+    width: min(100%, 920px);
     border: 1px solid rgba(255,255,255,0.14);
     border-radius: 18px;
     padding: 22px 18px 18px;
@@ -54,6 +54,18 @@ html, body {
     overflow-y: auto;
     background: rgba(12, 16, 27, 0.92);
     box-shadow: 0 18px 60px rgba(0,0,0,0.45);
+}
+
+#onboarding-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1.25fr) minmax(280px, 0.95fr);
+    gap: 18px;
+    align-items: start;
+}
+
+.onboarding-main,
+.preset-section {
+    min-width: 0;
 }
 
 .overlay-kicker {
@@ -86,6 +98,58 @@ html, body {
     display: grid;
     gap: 10px;
     margin-top: 16px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.preset-section {
+    padding: 14px;
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 16px;
+    background:
+        linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.025)),
+        radial-gradient(circle at top right, rgba(116, 185, 255, 0.14), transparent 42%);
+}
+
+#preset-options {
+    display: grid;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+.preset-option {
+    width: 100%;
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 14px;
+    padding: 10px 12px;
+    background: rgba(255,255,255,0.04);
+    cursor: pointer;
+    color: var(--text);
+    font: inherit;
+    text-align: left;
+    transition: border-color 0.15s ease, background 0.15s ease, transform 0.1s ease;
+}
+
+.preset-option.active {
+    border-color: rgba(129, 236, 236, 0.55);
+    background: rgba(129, 236, 236, 0.12);
+}
+
+.preset-option:active {
+    transform: scale(0.985);
+}
+
+.preset-option-label {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.preset-option-desc {
+    margin-top: 4px;
+    font-size: 12px;
+    line-height: 1.35;
+    color: rgba(255,255,255,0.62);
 }
 
 .intro-point {
@@ -146,6 +210,17 @@ html, body {
     cursor: pointer;
 }
 
+@media (min-width: 900px) {
+    #onboarding-title {
+        font-size: 34px;
+        max-width: 12ch;
+    }
+
+    #preset-options {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
 @media (max-width: 520px), (max-height: 760px) {
     #onboarding-overlay {
         padding: 12px;
@@ -156,6 +231,11 @@ html, body {
         padding: 16px 14px 14px;
         border-radius: 16px;
         max-height: calc(100dvh - 24px);
+    }
+
+    #onboarding-layout {
+        grid-template-columns: 1fr;
+        gap: 14px;
     }
 
     .overlay-kicker {
@@ -176,6 +256,7 @@ html, body {
     .intro-points {
         gap: 8px;
         margin-top: 12px;
+        grid-template-columns: 1fr;
     }
 
     .intro-point {
@@ -192,6 +273,11 @@ html, body {
         margin-top: 14px;
         padding: 12px 14px;
         font-size: 14px;
+    }
+
+    .preset-section {
+        padding: 12px;
+        border-radius: 14px;
     }
 }
 
@@ -245,6 +331,18 @@ html, body {
     background: linear-gradient(180deg, rgba(99, 110, 114, 0.18), rgba(10,10,20,0.08));
 }
 
+#avatar-section.state-low-energy::after {
+    opacity: 1;
+    background: linear-gradient(180deg, rgba(99, 110, 114, 0.12), rgba(5, 8, 16, 0.24));
+}
+
+#avatar-section.state-health-critical::after {
+    opacity: 1;
+    background:
+        radial-gradient(circle at 50% 42%, rgba(255, 118, 117, 0.14), transparent 40%),
+        linear-gradient(180deg, rgba(255, 118, 117, 0.08), transparent 60%);
+}
+
 /* ── HUD (top-right corner) ──────────────────────────────── */
 
 #hud {
@@ -266,6 +364,18 @@ html, body {
     display: flex;
     align-items: center;
     gap: 7px;
+    padding: 2px 4px;
+    border-radius: 8px;
+    transition: background 0.2s ease, box-shadow 0.2s ease;
+}
+
+.hud-row.is-warning {
+    background: rgba(255, 159, 67, 0.12);
+}
+
+.hud-row.is-critical {
+    background: rgba(214, 48, 49, 0.18);
+    box-shadow: 0 0 0 1px rgba(214, 48, 49, 0.26);
 }
 
 .hud-spacer {
@@ -280,7 +390,7 @@ html, body {
 }
 
 .hud-track {
-    width: 60px;
+    width: 70px;
     height: 6px;
     background: rgba(0,0,0,0.5);
     border-radius: 3px;
@@ -296,6 +406,14 @@ html, body {
     width: 0%;
 }
 
+.hud-value {
+    width: 28px;
+    text-align: right;
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+    color: rgba(255,255,255,0.7);
+}
+
 /* ── HUD detail panel (hover) ────────────────────────────── */
 
 #hud-detail {
@@ -304,10 +422,10 @@ html, body {
     right: 0;
     background: rgba(10, 10, 20, 0.88);
     border: 1px solid rgba(255,255,255,0.12);
-    border-radius: 10px;
-    padding: 10px 12px;
-    width: min(220px, calc(100vw - 32px));
-    max-height: min(50vh, 360px);
+    border-radius: 12px;
+    padding: 10px;
+    width: min(360px, calc(100vw - 24px));
+    max-height: min(54vh, 420px);
     overflow-y: auto;
     backdrop-filter: blur(6px);
     pointer-events: none;
@@ -319,10 +437,23 @@ html, body {
 #hud.open #hud-detail {
     opacity: 1;
     transform: translateY(0);
+    pointer-events: auto;
 }
 
-.detail-group { margin-bottom: 8px; }
-.detail-group:last-child { margin-bottom: 0; }
+#hud-detail {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+}
+
+.detail-group {
+    margin-bottom: 0;
+    min-width: 0;
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 10px;
+    padding: 8px;
+    background: rgba(255,255,255,0.03);
+}
 
 .detail-group-label {
     font-size: 9px;
@@ -337,15 +468,15 @@ html, body {
     display: flex;
     align-items: center;
     gap: 5px;
-    margin-bottom: 3px;
+    margin-bottom: 4px;
 }
 
 .detail-key {
     font-size: 10px;
     color: rgba(255,255,255,0.55);
-    width: 72px;
+    width: 62px;
     flex-shrink: 0;
-    text-align: right;
+    text-align: left;
 }
 
 .detail-bar {
@@ -366,7 +497,7 @@ html, body {
 .detail-val {
     font-size: 10px;
     color: rgba(255,255,255,0.6);
-    width: 28px;
+    width: 24px;
     text-align: right;
     font-variant-numeric: tabular-nums;
 }
@@ -374,8 +505,24 @@ html, body {
 @media (max-width: 720px) {
     #hud-detail {
         right: -2px;
-        width: min(220px, calc(100vw - 24px));
-        max-height: 42vh;
+        width: min(320px, calc(100vw - 16px));
+        max-height: min(48vh, 360px);
+        grid-template-columns: 1fr;
+    }
+
+    .detail-key {
+        width: 72px;
+    }
+}
+
+@media (min-width: 960px) {
+    #hud {
+        top: 16px;
+        right: 16px;
+    }
+
+    #hud-detail {
+        width: min(420px, 32vw);
     }
 }
 
@@ -390,6 +537,15 @@ html, body {
     height: 320px;
     z-index: 5;
     pointer-events: none;
+    transition: bottom 0.35s ease, filter 0.35s ease;
+}
+
+#avatar-section.state-low-energy .avatar-container {
+    bottom: -18px;
+}
+
+#avatar-section.state-health-critical .avatar-container {
+    filter: saturate(0.78) brightness(0.9);
 }
 
 #avatar-canvas-wrap {
@@ -447,6 +603,136 @@ html, body {
 .anim-shake         { animation: shake        0.45s ease-in-out infinite; }
 .anim-droop         { animation: droop        3.8s ease-in-out infinite; }
 .anim-barely-moving { animation: barely-moving 6s   ease-in-out infinite; }
+
+#state-callouts {
+    position: absolute;
+    left: 12px;
+    right: 12px;
+    bottom: 104px;
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    z-index: 11;
+    pointer-events: none;
+}
+
+.state-callout {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 10px;
+    border-radius: 999px;
+    border: 1px solid rgba(255,255,255,0.12);
+    background: rgba(9, 12, 20, 0.74);
+    backdrop-filter: blur(6px);
+    font-size: 11px;
+    color: rgba(255,255,255,0.9);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.22);
+}
+
+.state-callout.critical {
+    border-color: rgba(214, 48, 49, 0.3);
+    background: rgba(60, 10, 14, 0.76);
+}
+
+/* ── Thought clouds (hunger / energy) ───────────────────── */
+
+@keyframes thought-float {
+    0%, 100% { transform: translateY(0);    }
+    50%       { transform: translateY(-6px); }
+}
+@keyframes thought-float-left {
+    0%, 100% { transform: translateY(0)    scaleX(-1); }
+    50%       { transform: translateY(-6px) scaleX(-1); }
+}
+@keyframes thought-appear {
+    from { opacity: 0; transform: scale(0.6); }
+    to   { opacity: 1; transform: scale(1);   }
+}
+@keyframes thought-appear-left {
+    from { opacity: 0; transform: scaleX(-1) scale(0.6); }
+    to   { opacity: 1; transform: scaleX(-1) scale(1);   }
+}
+@keyframes thought-pulse {
+    0%, 100% { transform: translateY(0)    scale(1.00); }
+    50%       { transform: translateY(-7px) scale(1.05); }
+}
+@keyframes thought-pulse-left {
+    0%, 100% { transform: translateY(0)    scaleX(-1) scale(1.00); }
+    50%       { transform: translateY(-7px) scaleX(-1) scale(1.05); }
+}
+
+.thought-cloud {
+    position: absolute;
+    z-index: 12;
+    pointer-events: none;
+    /* Cloud bubble shape */
+    background: rgba(255, 255, 255, 0.93);
+    border-radius: 46% 54% 50% 50% / 54% 50% 50% 46%;
+    padding: 9px 16px;
+    font-size: 22px;
+    white-space: nowrap;
+    line-height: 1;
+    filter: drop-shadow(0 4px 14px rgba(0, 0, 0, 0.30));
+    /* Appear + float */
+    animation: thought-appear 0.35s cubic-bezier(0.34,1.56,0.64,1) both,
+               thought-float  3.2s  ease-in-out 0.35s infinite;
+    transition: opacity 0.25s ease;
+}
+.thought-cloud.hidden {
+    opacity: 0;
+    pointer-events: none;
+    animation: none;
+}
+
+/* Trail: two circles below the bubble pointing toward the monster */
+.thought-cloud::before,
+.thought-cloud::after {
+    content: '';
+    position: absolute;
+    background: rgba(255, 255, 255, 0.90);
+    border-radius: 50%;
+    filter: drop-shadow(0 2px 6px rgba(0,0,0,0.20));
+}
+.thought-cloud::before {
+    width: 13px; height: 13px;
+    bottom: -17px; left: 30%;
+}
+.thought-cloud::after {
+    width: 8px; height: 8px;
+    bottom: -29px; left: 24%;
+}
+
+/* Right side (hunger): anchored just outside the right edge of the 320px avatar */
+.thought-cloud-right {
+    top: 22%;
+    left: calc(50% + 112px);
+}
+
+/* Left side (energy): anchored just outside the left edge; mirror for tail direction */
+.thought-cloud-left {
+    top: 34%;
+    right: calc(50% + 112px);
+    transform: scaleX(-1);
+    animation: thought-appear-left 0.35s cubic-bezier(0.34,1.56,0.64,1) both,
+               thought-float-left  3.6s  ease-in-out 0.35s infinite;
+}
+.thought-cloud-left:not(.hidden) .thought-cloud-inner {
+    display: inline-block;
+    transform: scaleX(-1);   /* un-mirror the emoji */
+}
+
+/* Critical state: livelier pulse */
+.thought-cloud.critical {
+    animation: thought-appear 0.28s cubic-bezier(0.34,1.56,0.64,1) both,
+               thought-pulse  1.8s  ease-in-out 0.28s infinite;
+    background: rgba(255, 248, 225, 0.96);
+    filter: drop-shadow(0 4px 16px rgba(230, 126, 34, 0.45));
+}
+.thought-cloud-left.critical {
+    animation: thought-appear-left 0.28s cubic-bezier(0.34,1.56,0.64,1) both,
+               thought-pulse-left  1.8s  ease-in-out 0.28s infinite;
+}
 
 /* ── Recent actions strip ────────────────────────────────── */
 

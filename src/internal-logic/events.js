@@ -39,6 +39,7 @@ export const BASELINES = {
   hunger: 50.0,         // hunger increases over time (baseline is "somewhat hungry")
   energy: 50.0,
   anxiety: 30.0,        // moderate baseline anxiety (correlates with cortisol)
+  anandamide: 30.0,     // endocannabinoid tone — background bliss, pain mod, appetite
 };
 
 // Decay rate: fraction of distance to baseline recovered per hour
@@ -54,6 +55,7 @@ export const DECAY_RATES = {
   sleepiness: 0.15,     // alertness returns gradually
   anxiety: 0.12,        // moderate decay toward baseline (cortisol half-life ~1h)
   absorption: 0.20,     // decays relatively fast without stimulation
+  anandamide: 0.08,     // slow tonic system (slower than dopamine)
 };
 
 // =============================================================================
@@ -634,7 +636,7 @@ export function apply_decay(human, dt) {
 
   // === D. Consequences of extreme states ===
   if (human.dopamine > 85) {
-    human.psychological_health -= (human.dopamine - 85) * 0.18 * dt;
+    human.psychological_health -= (human.dopamine - 85) * 0.04 * dt;  // reduced: comedown is via rebound_queue
   }
   if (human.anxiety > 70) {
     human.psychological_health -= (human.anxiety - 70) * 0.1 * dt;
@@ -691,7 +693,7 @@ export class Event {
    * An event/action that can be applied to a Human.
    * apply takes (human, effectiveness) where effectiveness is 0.4-1.0.
    */
-  constructor(name, duration, applyFn, category = 'rest', canApply = (_h) => true, description = '', blockedReason = '') {
+  constructor(name, duration, applyFn, category = 'rest', canApply = (_h) => true, description = '', blockedReason = '', timeAdvance = null) {
     this.name = name;
     this.duration = duration;
     this.apply = applyFn;
@@ -699,8 +701,18 @@ export class Event {
     this.can_apply = canApply;
     this.description = description;
     this.blocked_reason = blockedReason;
+    this.time_advance = timeAdvance ?? default_time_advance(name, duration, category);
     this.note = null; // optional (h) => string | null — shown as soft warning even when available
   }
+}
+
+function default_time_advance(name, duration, category) {
+  if (name === 'sleep') return duration;
+  if (name === 'exercise') return Math.min(duration, 0.75);
+  if (category === 'drugs') return Math.min(duration, 0.35);
+  if (category === 'medical') return Math.min(duration, 0.25);
+  if (category === 'life') return Math.min(duration, 0.25);
+  return duration;
 }
 
 /**
@@ -718,6 +730,7 @@ export function make_events() {
     h.energy += 2;               // cost: not scaled
     nt_boost(h, 'dopamine', 5 * eff);
     h.anxiety -= 3 * eff;
+    h.anandamide += 2 * eff;
   }
 
   events['snack'] = new Event(
@@ -741,6 +754,7 @@ export function make_events() {
     nt_boost(h, 'serotonin', 8 * eff);
     h.anxiety -= 10 * eff;
     h.absorption += 5 * eff;
+    h.anandamide += 4 * eff;
   }
 
   events['eat'] = new Event(
@@ -914,6 +928,7 @@ export function make_events() {
 
     h.anxiety = Math.max(5, h.anxiety - 30 * eff);
     h.absorption = Math.min(100, h.absorption + 25 * eff);
+    h.anandamide += 12 * eff;
 
     h.time_since_orgasm = 0;
     h.edging_buildup = 0;
@@ -996,6 +1011,7 @@ export function make_events() {
     h.anxiety -= 15 * eff;
     h.absorption += 10 * eff;
     h.vasopressin -= 8 * eff;
+    h.anandamide += 10 * eff;
   }
 
   events['cuddling'] = new Event(
@@ -1017,6 +1033,7 @@ export function make_events() {
     h.anxiety -= 20 * eff;
     h.absorption += 15 * eff;
     h.vasopressin -= 10 * eff;
+    h.anandamide += 8 * eff;
   }
 
   events['massage'] = new Event(
@@ -1037,6 +1054,7 @@ export function make_events() {
     h.energy += 3;
     h.anxiety -= 15 * eff;
     h.absorption += 8 * eff;
+    h.anandamide += 5 * eff;
   }
 
   events['deep_breathing'] = new Event(
@@ -1161,6 +1179,7 @@ export function make_events() {
     nt_boost(h, 'dopamine', 15 * eff);
     h.absorption += 25 * eff;
     h.anxiety -= 20 * eff;
+    h.anandamide += 20 * eff;     // cannabis acts on CB1 like anandamide
   }
 
   events['weed'] = new Event(
@@ -1273,7 +1292,8 @@ export function make_events() {
     nt_boost(h, 'dopamine', 8 * eff);
     h.arousal += 5 * eff;
     h.anxiety -= 8 * eff;
-    h.energy += 3;
+    h.sleepiness -= 5;
+    h.hunger -= 3;
   }
 
   events['tobacco'] = new Event(
@@ -1291,7 +1311,7 @@ export function make_events() {
     nt_boost(h, 'dopamine', 8 * eff);
     h.arousal += 10 * eff;
     h.sleepiness -= 25 * eff;
-    h.energy += 10;
+    h.hunger -= 8;
     h.prefrontal += 10 * eff;
   }
 
@@ -1336,11 +1356,17 @@ export function make_events() {
     h.anxiety += 14;              // cost: not scaled
     h.physical_health -= 1.25;    // cost: not scaled
     h.hunger -= 20;               // appetite suppression
-    h.sleepiness -= 30;           // can't sleep
+    h.sleepiness -= 40;           // adenosine blockade
     nt_boost(h, 'dopamine', 35 * eff);
     h.arousal += 25 * eff;
-    h.energy += 20;
     h.prefrontal += 10 * eff;
+    // Comedown: psych damage fires after drug wears off, not during the peak
+    h.rebound_queue.push({
+      attr: 'psychological_health',
+      amount: -4.0 * eff,
+      delay_remaining: 4.5,
+      duration: 8.0,
+    });
   }
 
   events['amphetamines'] = new Event(
@@ -1348,7 +1374,7 @@ export function make_events() {
     4.0,
     amphetamines,
     'drugs',
-    (h) => h.energy > 20,
+    (h) => h.energy > 5 || h.sleepiness > 40,
     'Amphetamines - strong stimulant, dopamine surge',
     'need more energy'
   );
@@ -1359,7 +1385,8 @@ export function make_events() {
     h.physical_health -= 1.5;     // cost: not scaled
     nt_boost(h, 'dopamine', 45 * eff);
     h.arousal += 20 * eff;
-    h.energy += 15;
+    h.sleepiness -= 30;           // adenosine blockade
+    h.hunger -= 18;               // appetite suppression
     // Probabilistic: anxiety spike
     if (ENABLE_PROBABILISTIC && Math.random() < 0.08) {
       h.anxiety += 35;
@@ -1372,7 +1399,7 @@ export function make_events() {
     0.5,
     cocaine,
     'drugs',
-    (h) => h.energy > 20,
+    (h) => h.energy > 5 || h.sleepiness > 40,
     'Cocaine - intense short dopamine spike, harsh crash',
     'need more energy'
   );
@@ -1494,6 +1521,7 @@ export function make_events() {
     nt_boost(h, 'endorphins', 20 * eff);
     nt_boost(h, 'dopamine', 10 * eff);
     nt_boost(h, 'serotonin', 8 * eff);
+    h.anandamide += 18 * eff;     // runner's high is endocannabinoid, not endorphins
     h.anxiety -= 15 * eff;
     h.arousal += 8 * eff;
     h.time_since_exercise = 0;
@@ -1504,7 +1532,7 @@ export function make_events() {
     'exercise',
     1.0,
     exercise,
-    'life',
+    'rest',
     (h) => h.energy > 25 && h.time_since_exercise >= 24,
     'Exercise — endorphins, physical health boost (once per day)',
     (h) => h.time_since_exercise < 24

@@ -35,25 +35,36 @@
 <div id="app">
     <div id="onboarding-overlay">
         <div id="onboarding-card">
-            <div class="overlay-kicker" id="onboarding-kicker">sensagotchi</div>
-            <h1 id="onboarding-title">armá tu monstruito y leé el estado del sistema</h1>
-            <p class="overlay-copy" id="onboarding-copy-1">
-                Esto no es un tamagotchi clásico: estás manejando un sistema nervioso. Algunas cosas pegan
-                ahora mismo; otras cambian el contexto y te condicionan por bastante tiempo.
-            </p>
-            <div class="intro-points">
-                <div class="intro-point">
-                    <span class="intro-badge immediate" id="onboarding-immediate">acción inmediata</span>
-                    <p id="onboarding-immediate-copy">Da alivio, placer o desgaste rápido. Mirá cómo se mueven las barras y qué te devuelve el monstruito.</p>
+            <div id="onboarding-layout">
+                <div class="onboarding-main">
+                    <div class="overlay-kicker" id="onboarding-kicker">sensagotchi</div>
+                    <h1 id="onboarding-title">armá tu monstruito y leé el estado del sistema</h1>
+                    <p class="overlay-copy" id="onboarding-copy-1">
+                        Esto no es un tamagotchi clásico: estás manejando un sistema nervioso. Algunas cosas pegan
+                        ahora mismo; otras cambian el contexto y te condicionan por bastante tiempo.
+                    </p>
+                    <div class="intro-points">
+                        <div class="intro-point">
+                            <span class="intro-badge immediate" id="onboarding-immediate">acción inmediata</span>
+                            <p id="onboarding-immediate-copy">Da alivio, placer o desgaste rápido. Mirá cómo se mueven las barras y qué te devuelve el monstruito.</p>
+                        </div>
+                        <div class="intro-point">
+                            <span class="intro-badge persistent" id="onboarding-persistent">estado global</span>
+                            <p id="onboarding-persistent-copy">Cambia el contexto de fondo. Puede hacer que otras acciones funcionen mejor o peor más adelante.</p>
+                        </div>
+                    </div>
+                    <p class="overlay-copy compact" id="onboarding-copy-2">
+                        Objetivo base: mantener salud física y psicológica sin perder de vista hambre, energía, ansiedad y sueño.
+                    </p>
                 </div>
-                <div class="intro-point">
-                    <span class="intro-badge persistent" id="onboarding-persistent">estado global</span>
-                    <p id="onboarding-persistent-copy">Cambia el contexto de fondo. Puede hacer que otras acciones funcionen mejor o peor más adelante.</p>
+                <div class="preset-section">
+                    <div class="overlay-kicker" id="preset-kicker">preset inicial</div>
+                    <p class="overlay-copy compact" id="preset-copy">
+                        Elegí un contexto de arranque. Cambia rasgos globales y el estado base del sistema.
+                    </p>
+                    <div id="preset-options"></div>
                 </div>
             </div>
-            <p class="overlay-copy compact" id="onboarding-copy-2">
-                Objetivo base: mantener salud física y psicológica sin perder de vista hambre, energía, ansiedad y sueño.
-            </p>
             <button id="start-btn" onclick="dismissOnboarding()">empezar</button>
         </div>
     </div>
@@ -67,42 +78,48 @@
 
         <!-- HUD bars: tap anywhere to toggle detail panel -->
         <div id="hud" onclick="this.classList.toggle('open'); event.stopPropagation()">
-            <div class="hud-row">
+            <div class="hud-row" id="hud-row-hunger">
                 <span class="hud-label" data-tip="hunger" data-tip-id="hunger">🍔</span>
                 <div class="hud-track">
                     <div class="hud-fill" id="hud-hunger" style="--color:#e67e22"></div>
                 </div>
+                <span class="hud-value" id="hud-value-hunger">0</span>
             </div>
-            <div class="hud-row">
+            <div class="hud-row" id="hud-row-anxiety">
                 <span class="hud-label" data-tip="anxiety" data-tip-id="anxiety">😰</span>
                 <div class="hud-track">
                     <div class="hud-fill" id="hud-anxiety" style="--color:#ee5a24"></div>
                 </div>
+                <span class="hud-value" id="hud-value-anxiety">0</span>
             </div>
-            <div class="hud-row">
+            <div class="hud-row" id="hud-row-sleepiness">
                 <span class="hud-label" data-tip="sleepiness" data-tip-id="sleepiness">😴</span>
                 <div class="hud-track">
                     <div class="hud-fill" id="hud-sleepiness" style="--color:#636e72"></div>
                 </div>
+                <span class="hud-value" id="hud-value-sleepiness">0</span>
             </div>
             <div class="hud-spacer"></div>
-            <div class="hud-row">
+            <div class="hud-row" id="hud-row-psych">
                 <span class="hud-label" data-tip="psychological health" data-tip-id="psych">🧠</span>
                 <div class="hud-track">
                     <div class="hud-fill" id="hud-psych" style="--color:#a29bfe"></div>
                 </div>
+                <span class="hud-value" id="hud-value-psych">0</span>
             </div>
-            <div class="hud-row">
+            <div class="hud-row" id="hud-row-physical">
                 <span class="hud-label" data-tip="physical health" data-tip-id="physical">❤️</span>
                 <div class="hud-track">
                     <div class="hud-fill" id="hud-physical" style="--color:#ff7675"></div>
                 </div>
+                <span class="hud-value" id="hud-value-physical">0</span>
             </div>
-            <div class="hud-row">
+            <div class="hud-row" id="hud-row-energy">
                 <span class="hud-label" data-tip="energy" data-tip-id="energy">⚡</span>
                 <div class="hud-track">
                     <div class="hud-fill" id="hud-energy" style="--color:#00b894"></div>
                 </div>
+                <span class="hud-value" id="hud-value-energy">0</span>
             </div>
             <!-- Detail panel: tap HUD to toggle -->
             <div id="hud-detail"></div>
@@ -111,6 +128,13 @@
         <!-- Event notification overlay -->
         <div id="event-notification"></div>
         <div id="monster-status-banner"></div>
+
+        <!-- Comic thought clouds for hunger and energy -->
+        <div id="thought-hunger" class="thought-cloud thought-cloud-right hidden"></div>
+        <div id="thought-energy" class="thought-cloud thought-cloud-left  hidden"></div>
+
+        <!-- Health/crit alerts (chips) -->
+        <div id="state-callouts"></div>
 
         <!-- Avatar (p5.js procedural monster) -->
         <div class="avatar-container anim-idle" id="avatar-container">

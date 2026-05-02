@@ -5,7 +5,7 @@
     "node": ">=18"
   },
   "scripts": {
-    "test": "vitest run"
+    "test": "PATH=\"$HOME/.nvm/versions/node/v20.20.1/bin:$PATH\" vitest run"
   },
   "devDependencies": {
     "vitest": "^1.0.0"

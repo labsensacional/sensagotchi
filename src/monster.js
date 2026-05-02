@@ -447,14 +447,46 @@ function drawZzzz(cx, cy, headRx, headRy, intensity) {
 // ── Hunger drool ─────────────────────────────────────────────────────────────
 // curve: mouth curve value (positive = smile, negative = frown) so we follow the lip
 function drawDrool(cx, mY, mouthW, curve, intensity) {
-  const a    = Math.round(intensity * 210);
-  // Place at the right corner, tracking the actual bezier curve position at that x
-  const tx   = cx + mouthW * 0.88;
-  const u2   = ((tx - cx) / mouthW) ** 2;
-  const cornerY = mY + (curve * 30) * (1 - u2) / 2;  // actual curve y at corner
-  const r    = Math.round(4 + intensity * 3);          // small, subtle
+  const a  = Math.round(intensity * 220);
+  const tx = cx + mouthW * 0.88;
+  const u2 = ((tx - cx) / mouthW) ** 2;
+  const cornerY = mY + (curve * 30) * (1 - u2) / 2;
+
   fill(80, 208, 226, a); noStroke();
-  arc(tx, cornerY, r * 2, r * 2, 0, Math.PI);          // single downward semicircle
+
+  // Widened arc at mouth corner
+  const rArc = Math.round(6 + intensity * 5);
+  arc(tx, cornerY, rArc * 2, rArc * 2, 0, Math.PI);
+
+  // Hanging drip stream below the arc
+  const streamH = Math.round(10 + intensity * 38);  // 10–48 px tall
+  const streamW = Math.round(4 + intensity * 5);     // 4–9 px wide
+  const sy = cornerY + rArc;
+  beginShape();
+  vertex(tx - streamW / 2, sy);
+  bezierVertex(tx - streamW / 2, sy + streamH * 0.5,
+               tx - streamW * 0.3, sy + streamH * 0.85,
+               tx, sy + streamH);
+  bezierVertex(tx + streamW * 0.3, sy + streamH * 0.85,
+               tx + streamW / 2, sy + streamH * 0.5,
+               tx + streamW / 2, sy);
+  endShape(CLOSE);
+
+  // Teardrop bead at the tip (only when intensity is strong enough to form a drop)
+  if (intensity > 0.45) {
+    const dr = Math.round(4 + intensity * 6);
+    const dy = sy + streamH + dr * 0.6;
+    beginShape();
+    vertex(tx, sy + streamH - dr * 0.4);
+    bezierVertex(tx + dr * 0.55, dy - dr * 1.2,
+                 tx + dr, dy - dr * 0.3,
+                 tx + dr, dy + dr * 0.2);
+    bezierVertex(tx + dr, dy + dr, tx - dr, dy + dr, tx - dr, dy + dr * 0.2);
+    bezierVertex(tx - dr, dy - dr * 0.3,
+                 tx - dr * 0.55, dy - dr * 1.2,
+                 tx, sy + streamH - dr * 0.4);
+    endShape(CLOSE);
+  }
 }
 
 // ── FX overlays ───────────────────────────────────────────────────────────────
@@ -592,6 +624,49 @@ function drawForehead(cx, browY, type, intensity) {
   }
 }
 
+// ── Veins (low health: subcutaneous veins visible on body/face) ───────────────
+function drawVeins(cx, cy, headRx, headRy, bodyCy, bodyRy, intensity) {
+  if (intensity <= 0.04) return;
+  const a = Math.round(intensity * 140);
+  stroke(50, 22, 88, a);   // dark purple
+  strokeWeight(0.7 + intensity * 1.4);
+  noFill();
+
+  // Temple vein — left side of forehead curving down
+  drawBezierCurve([
+    [cx - headRx * 0.34, cy - headRy * 0.32],
+    [cx - headRx * 0.48, cy - headRy * 0.10],
+    [cx - headRx * 0.44, cy + headRy * 0.16],
+  ], 28);
+
+  // Neck-to-torso vein — left side
+  drawBezierCurve([
+    [cx - headRx * 0.18, cy + headRy * 0.50],
+    [cx - headRx * 0.30, cy + headRy * 0.72],
+    [cx - headRx * 0.24, bodyCy - bodyRy * 0.35],
+    [cx - headRx * 0.20, bodyCy + bodyRy * 0.10],
+  ], 36);
+
+  // Right body vein
+  drawBezierCurve([
+    [cx + headRx * 0.20, cy + headRy * 0.55],
+    [cx + headRx * 0.36, bodyCy - bodyRy * 0.45],
+    [cx + headRx * 0.28, bodyCy + bodyRy * 0.05],
+  ], 28);
+
+  // Small branching vein on right cheek (only at high intensity)
+  if (intensity > 0.5) {
+    const bi = Math.round((intensity - 0.5) * 2 * 100);
+    stroke(50, 22, 88, Math.min(bi, a));
+    drawBezierCurve([
+      [cx + headRx * 0.26, cy + headRy * 0.08],
+      [cx + headRx * 0.38, cy + headRy * 0.22],
+      [cx + headRx * 0.32, cy + headRy * 0.42],
+    ], 22);
+  }
+}
+
+
 // ── Main renderer ─────────────────────────────────────────────────────────────
 function renderMonster(e) {
   strokeCap(ROUND); strokeJoin(ROUND);
@@ -669,6 +744,11 @@ function renderMonster(e) {
   const shapeHH  = Math.round((shapeBot - shapeTop) / 2);
   const cornerR  = Math.round(headRx * 0.82);
   drawRoundedBody(cx, shapeCY, headRx, shapeHH, cornerR, bc);
+
+  // Veins — drawn on top of body but behind face features
+  if ((fx.veins || 0) > 0.04) drawVeins(cx, cy, headRx, headRy, bodyCy, bodyRy, fx.veins);
+
+  // Hunger thought bubble — drawn beside/above head
 
   // ── Face features (all relative to head geometry) ─────────────────────────
   const eyeY  = cy - Math.round(headRy * 0.08);
@@ -758,6 +838,7 @@ const DEFAULT_STATE = {
   hunger:      20,
   energy:      80,
   shutdown:     0,
+  anandamide:  30,
 };
 
 // ── State presets (expressed in internal-logic terms) ────────────────────────
@@ -784,14 +865,14 @@ const STATE_PRESETS = {
     dopamine: 80, oxytocin: 70, endorphins: 75, serotonin: 70,
     prolactin: 12, vasopressin: 22, arousal: 55, prefrontal: 65,
     sleepiness: 8, anxiety: 12, absorption: 50, hunger: 15,
-    energy: 85, shutdown: 0,
+    energy: 85, shutdown: 0, anandamide: 45,
   },
   bonding: {
     // after cuddling + massage path: oxytocin dominant, vasopressin low
     dopamine: 55, oxytocin: 78, endorphins: 42, serotonin: 74,
     prolactin: 12, vasopressin: 10, arousal: 22, prefrontal: 44,
     sleepiness: 28, anxiety: 6, absorption: 48, hunger: 18,
-    energy: 70, shutdown: 0,
+    energy: 70, shutdown: 0, anandamide: 42,
   },
   flow: {
     // hypofrontality: prefrontal < 40, absorption > 70 — trance / in-the-zone
@@ -806,14 +887,14 @@ const STATE_PRESETS = {
     dopamine: 22, oxytocin: 18, endorphins: 8, serotonin: 18,
     prolactin: 32, vasopressin: 12, arousal: 12, prefrontal: 32,
     sleepiness: 58, anxiety: 48, absorption: 62, hunger: 38,
-    energy: 28, shutdown: 0,
+    energy: 28, shutdown: 0, anandamide: 18,
   },
   depressed: {
     // low reserves, dopamine/serotonin depleted, high prolactin
     dopamine: 18, oxytocin: 14, endorphins: 7, serotonin: 14,
     prolactin: 30, vasopressin: 10, arousal: 8, prefrontal: 36,
     sleepiness: 68, anxiety: 54, absorption: 50, hunger: 48,
-    energy: 20, shutdown: 6,
+    energy: 20, shutdown: 6, anandamide: 12,
   },
   anxious: {
     dopamine: 42, oxytocin: 14, endorphins: 12, serotonin: 28,
@@ -856,7 +937,7 @@ const STATE_PRESETS = {
     dopamine: 36, oxytocin: 88, endorphins: 92, serotonin: 78,
     prolactin: 82, vasopressin: 28, arousal: 14, prefrontal: 38,
     sleepiness: 62, anxiety: 4, absorption: 52, hunger: 32,
-    energy: 38, shutdown: 0,
+    energy: 38, shutdown: 0, anandamide: 44,
   },
 
   // ── Altered states ──────────────────────────────────────────────────────────
@@ -872,7 +953,7 @@ const STATE_PRESETS = {
     dopamine: 66, oxytocin: 32, endorphins: 22, serotonin: 50,
     prolactin: 10, vasopressin: 18, arousal: 20, prefrontal: 28,
     sleepiness: 36, anxiety: 8, absorption: 58, hunger: 48,
-    energy: 72, shutdown: 0,
+    energy: 72, shutdown: 0, anandamide: 52,
   },
   rolling: {
     // MDMA: serotonin+40, oxytocin+35, dopamine+25, endorphins+20, anxiety-30, prefrontal-30
@@ -903,24 +984,30 @@ function stateToParams(s) {
   const cl = (x, lo = 0, hi = 1) => Math.max(lo, Math.min(hi, x));
 
   // Normalize all to 0–1
-  const da = s.dopamine    / 100;
-  const ox = s.oxytocin    / 100;
-  const en = s.endorphins  / 100;
-  const se = s.serotonin   / 100;
-  const pr = s.prolactin   / 100;
-  const va = s.vasopressin / 100;
-  const ar = s.arousal     / 100;
-  const pf = s.prefrontal  / 100;
-  const sl = s.sleepiness  / 100;
-  const an = s.anxiety     / 100;
-  const ab = s.absorption  / 100;
-  const hu = s.hunger      / 100;
-  const eg = s.energy      / 100;
-  const sh = s.shutdown    / 100;
+  const da  = s.dopamine             / 100;
+  const ox  = s.oxytocin             / 100;
+  const en  = s.endorphins           / 100;
+  const se  = s.serotonin            / 100;
+  const pr  = s.prolactin            / 100;
+  const va  = s.vasopressin          / 100;
+  const ar  = s.arousal              / 100;
+  const pf  = s.prefrontal           / 100;
+  const sl  = s.sleepiness           / 100;
+  const an  = s.anxiety              / 100;
+  const ab  = s.absorption           / 100;
+  const hu  = s.hunger               / 100;
+  const eg  = s.energy               / 100;
+  const sh  = s.shutdown             / 100;
+  const ph  = (s.physical_health     ?? 80) / 100;
+  const psh = (s.psychological_health ?? 70) / 100;
+  const health = Math.min(ph, psh);  // worst-case health composite
+  const ana = (s.anandamide ?? 30)   / 100;
 
   // Derived composites
-  // liking: hedonic valence (pleasure + social warmth + contentment)
-  const liking = cl(en * 0.40 + ox * 0.25 + se * 0.35);
+  // liking: mirrors liking_score() — dynamic peaks + emotional tone floor
+  // emotional_tone: slow background (serotonin, oxytocin, anandamide)
+  const emotional_tone = se * 0.35 + ox * 0.30 + ana * 0.35;
+  const liking = cl(en * 0.65 + da * 0.12 + emotional_tone * 0.30);
   // tone: muscle activation (arousal/vasopressin/energy raise it; shutdown/sleep/prolactin lower it)
   const tone   = cl(ar * 0.35 + va * 0.25 + eg * 0.20 - sh * 0.90 - sl * 0.45 - pr * 0.25 + 0.25);
   // threat: appraisal of danger (anxiety + low energy + low prefrontal control)
@@ -932,8 +1019,8 @@ function stateToParams(s) {
 
   // ── Pose (Darwin: Useful Habits — muscle tone drives posture) ─────────────
   let pose = 'neutral';
-  if (sh > 0.55 || (sl > 0.70 && eg < 0.28)) {
-    pose = 'postration';                          // collapse / exhaustion
+  if (sh > 0.55 || (sl > 0.70 && eg < 0.28) || eg < 0.15) {
+    pose = 'postration';                          // collapse / exhaustion / no energy
   } else if (threat > 0.58 && tone < 0.40) {
     pose = 'contraction';                         // fearful curl
   } else if (threat > 0.58 && tone > 0.52) {
@@ -953,9 +1040,11 @@ function stateToParams(s) {
   // ── Eyes (apertura de orificios) ──────────────────────────────────────────
   // Wide open: arousal, anxiety (threat scanning)
   // Drooping: sleepiness, prolactin (post-satiation), low arousal
-  const openness    = cl(0.55 + ar * 0.75 - sl * 0.60 + an * 0.40 - pr * 0.30);
-  const lid_drop    = cl(sl * 0.80 + pr * 0.45 - ar * 0.25);
-  const pupil_scale = cl(0.60 + ar * 0.55 + an * 0.35 - pr * 0.30 - sl * 0.20 + da * 0.22);
+  // Health-glazed eyes: when health is critically low, eyes become heavy-lidded and pupils dim
+  const health_glaze = cl((0.30 - health) * 2.5, 0, 0.45);
+  const openness    = cl(0.55 + ar * 0.75 - sl * 0.60 + an * 0.40 - pr * 0.30 - health_glaze * 0.5);
+  const lid_drop    = cl(sl * 0.80 + pr * 0.45 - ar * 0.25 + health_glaze);
+  const pupil_scale = cl(0.60 + ar * 0.55 + an * 0.35 - pr * 0.30 - sl * 0.20 + da * 0.22 - health_glaze * 0.4);
 
   // ── Eyebrows (muscle indicators) ─────────────────────────────────────────
   // Darwin obliquity (angle > 0): inner corners UP = sadness / fearful suffering
@@ -995,7 +1084,7 @@ function stateToParams(s) {
   const open_round  = ar > 0.68 && threat < 0.38 && open_amount > 0.48 && liking < 0.45;
 
   // ── FX (Darwin: direct nervous system action = intensity overlays) ────────
-  const blush  = cl(liking * 0.90 + ox * 0.25 - an * 0.15 - 0.28);
+  const blush  = cl(liking * 0.90 + ox * 0.25 + ana * 0.08 - an * 0.15 - 0.28);
   // spiky: horripilation — piel de gallina (anxiety + low prefrontal control)
   const spiky  = cl(an * 0.60 + (1 - pf) * 0.15 + threat * 0.20 - liking * 0.30);
   // sweat: anxiety + high arousal
@@ -1011,6 +1100,8 @@ function stateToParams(s) {
   const zzz   = cl(sl * 0.90 - eg * 0.40 - ar * 0.50);
   // drool: hunger drool from mouth corner — high hunger, low prefrontal inhibition
   const drool = cl(hu * 0.80 - pf * 0.35 - liking * 0.25);
+  // veins: subcutaneous veins visible when health is low (physical or psychological)
+  const veins = cl((0.45 - health) * 2.2);
 
   // ── Duchenne additions ────────────────────────────────────────────────────
   // Crow's feet: genuine smile = hedonic liking + visible smile signal
@@ -1095,6 +1186,7 @@ function stateToParams(s) {
       nostril_flare: Math.max(-1, Math.min(1, nostril_flare)),
       zzz:           cl(zzz,   0, 1),
       drool:         cl(drool, 0, 1),
+      veins:         cl(veins,  0, 1),
     },
     forehead: { type: foreheadType, intensity: foreheadIntensity },
   };
@@ -1156,7 +1248,7 @@ window.updateMonsterFromApp = function(appState) {
   if (!monsterState) return;
   const keys = ['dopamine','oxytocin','endorphins','serotonin','prolactin',
                 'vasopressin','arousal','prefrontal','sleepiness','anxiety',
-                'absorption','hunger','energy','shutdown'];
+                'absorption','hunger','energy','shutdown','anandamide'];
   for (const k of keys) {
     if (appState[k] !== undefined) monsterState[k] = appState[k];
   }

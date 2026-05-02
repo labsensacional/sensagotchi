@@ -2,7 +2,7 @@
    TAMAGOTCHI HEDONISTA — main.js
    ============================================================= */
 
-import { Human, create_human } from './internal-logic/human.js';
+import { Human, create_human_from_preset, get_human_presets } from './internal-logic/human.js';
 import { make_events, apply_event, apply_decay, drainNotifications } from './internal-logic/events.js';
 import { actionLabel, eventDisplay, getInitialLocale, getLocale, setLocale, t, translateNotification } from './i18n.js';
 
@@ -17,6 +17,8 @@ let _pinnedActions = [];        // action ids pinned via URL ?pinned= param
 let audioStarted   = false;
 let audioMuted     = false;
 let onboardingDismissed = false;
+let currentPresetId = 'default';
+const HUMAN_PRESET_IDS = Object.keys(get_human_presets());
 
 // ── Category metadata ──────────────────────────────────────────
 const CAT_META = {
@@ -27,13 +29,13 @@ const CAT_META = {
     food:      { emoji: '🍎', labelKey: 'ui.category_food'      },
     rest:      { emoji: '😴', labelKey: 'ui.category_rest'      },
     drugs:     { emoji: '💊', labelKey: 'ui.category_drugs'     },
-    medical:   { emoji: '🏥', labelKey: 'ui.category_medical'   },
-    life:      { emoji: '🌍', labelKey: 'ui.category_life'      },
+    // 'medical' and 'life' removed — global context set via presets only
 };
 
-const PERSISTENT_CATEGORIES = new Set(['life', 'medical']);
+const PERSISTENT_CATEGORIES = new Set();
 const GLOBAL_VISUAL_CLASSES = [
-    'state-stress-low', 'state-stress-high', 'state-ssri', 'state-shutdown'
+    'state-stress-low', 'state-stress-high', 'state-ssri', 'state-shutdown',
+    'state-low-energy', 'state-health-critical'
 ];
 
 // ── Background mapping (action → bg key) ──────────────────────
@@ -66,18 +68,7 @@ const ACTION_BG = {
     tobacco:              'drugs',
     nitrous:              'drugs',
     caffeine:             'drugs',
-    take_ssri:            'medical',
-    stop_ssri:            'medical',
-    therapy_session:      'medical',
-    testosterone_injection:'medical',
-    anti_androgen:        'medical',
-    exercise:             'life',
-    job_loss:             'life',
-    financial_crisis:     'life',
-    breakup:              'life',
-    get_job:              'life',
-    resolve_finances:     'life',
-    new_relationship:     'life',
+    exercise:             'rest',
 };
 
 // ── Avatar animation logic ─────────────────────────────────────
@@ -106,6 +97,66 @@ function updateAvatar(s) {
     container.classList.add('anim-' + anim);
 }
 
+function updateThoughtCloud(id, show, critical, emojis) {
+    const el = $(id);
+    if (!el) return;
+    if (!show) {
+        el.classList.add('hidden');
+        el.classList.remove('critical');
+        return;
+    }
+    // Rebuild inner span so mirrored left cloud un-mirrors its emoji
+    el.innerHTML = `<span class="thought-cloud-inner">${emojis}</span>`;
+    el.classList.remove('hidden');
+    el.classList.toggle('critical', critical);
+    // Re-trigger appear animation by forcing reflow
+    el.style.animation = 'none';
+    el.offsetHeight; // reflow
+    el.style.animation = '';
+}
+
+function updateStateCallouts(state) {
+    // ── Thought clouds for hunger and energy ──────────────────
+    const hungerHigh = state.hunger >= 68;
+    const hungerCrit = state.hunger >= 82;
+    updateThoughtCloud(
+        'thought-hunger', hungerHigh, hungerCrit,
+        hungerCrit ? '🍕 🍔 🌮' : '🍕 🍔'
+    );
+
+    const energyLow  = state.energy <= 30;
+    const energyCrit = state.energy <= 18;
+    updateThoughtCloud(
+        'thought-energy', energyLow, energyCrit,
+        energyCrit ? '🛏️ 💤 😴' : '🛏️ 💤'
+    );
+
+    // ── Health alert chips (keep existing pill style) ─────────
+    const el = $('state-callouts');
+    if (!el) return;
+
+    const chips = [];
+    const worstHealth = Math.min(state.physical_health, state.psychological_health);
+    if (state.psychological_health <= 38) {
+        chips.push({ icon: '🧠', label: t('ui.callout_psych'), critical: state.psychological_health <= 24 });
+    }
+    if (state.physical_health <= 38) {
+        chips.push({ icon: '❤️', label: t('ui.callout_physical'), critical: state.physical_health <= 24 });
+    }
+
+    if (!chips.length) { el.innerHTML = ''; return; }
+
+    const limited = chips
+        .sort((a, b) => Number(b.critical) - Number(a.critical))
+        .slice(0, worstHealth <= 24 ? 2 : 1);
+
+    el.innerHTML = limited.map(item => `
+        <div class="state-callout ${item.critical ? 'critical' : ''}">
+            <span>${item.icon}</span>
+            <span>${item.label}</span>
+        </div>`).join('');
+}
+
 function updateHUD(s) {
     const bars = [
         { id: 'hud-hunger',    val: s.hunger              },
@@ -119,7 +170,32 @@ function updateHUD(s) {
         const el = $(id);
         if (el) el.style.width = `${Math.max(0, Math.min(100, val))}%`;
     });
+    updateHUDUrgency(s);
     updateHUDDetail(s);
+}
+
+function setHUDRowState(key, value, { badWhenHigh = false, warning = 60, critical = 80 } = {}) {
+    const row = $(`hud-row-${key}`);
+    const valueEl = $(`hud-value-${key}`);
+    if (valueEl) valueEl.textContent = `${Math.round(value)}`;
+    if (!row) return;
+    row.classList.remove('is-warning', 'is-critical');
+    const isCritical = badWhenHigh ? value >= critical : value <= critical;
+    const isWarning = badWhenHigh ? value >= warning : value <= warning;
+    if (isCritical) {
+        row.classList.add('is-critical');
+    } else if (isWarning) {
+        row.classList.add('is-warning');
+    }
+}
+
+function updateHUDUrgency(s) {
+    setHUDRowState('hunger', s.hunger, { badWhenHigh: true, warning: 60, critical: 78 });
+    setHUDRowState('anxiety', s.anxiety, { badWhenHigh: true, warning: 60, critical: 78 });
+    setHUDRowState('sleepiness', s.sleepiness, { badWhenHigh: true, warning: 65, critical: 82 });
+    setHUDRowState('psych', s.psychological_health, { badWhenHigh: false, warning: 42, critical: 28 });
+    setHUDRowState('physical', s.physical_health, { badWhenHigh: false, warning: 42, critical: 28 });
+    setHUDRowState('energy', s.energy, { badWhenHigh: false, warning: 35, critical: 20 });
 }
 
 // Color per field (CSS custom property --dc on .detail-fill)
@@ -431,6 +507,14 @@ function updateGlobalVisualState(state) {
     if (state.shutdown >= 35) {
         avatarSection.classList.add('state-shutdown');
     }
+
+    if (state.energy <= 30) {
+        avatarSection.classList.add('state-low-energy');
+    }
+
+    if (Math.min(state.physical_health, state.psychological_health) <= 38) {
+        avatarSection.classList.add('state-health-critical');
+    }
 }
 
 function classifyPleasure(before, after) {
@@ -629,6 +713,7 @@ function applyStateToUI(state, lastActions) {
     currentState = state;
     updateAvatar(state);
     updateHUD(state);
+    updateStateCallouts(state);
     updateRecentActions(lastActions);
     updateGlobalStatePanel(state);
     updateMonsterStatusBanner(state);
@@ -704,7 +789,7 @@ function applyAction(name) {
     const before = human_to_dict(_human);
     apply_event(_human, name, event);
     const afterEvent = human_to_dict(_human);  // pre-decay snapshot for clean diff
-    apply_decay(_human, event.duration);
+    apply_decay(_human, event.time_advance ?? event.duration);
     _human.clamp_values();
 
     const notifications = drainNotifications();
@@ -747,7 +832,7 @@ function resetGame() {
     if (_notifTimer) { clearTimeout(_notifTimer); _notifTimer = null; }
     const notifEl = $('event-notification');
     if (notifEl) notifEl.innerHTML = '';
-    _human = create_human();
+    _human = createHumanForCurrentPreset();
     _lastActions = [];
     allEvents = events_by_category();
     currentCategory = null;
@@ -774,6 +859,34 @@ function renderPinnedSection() {
     return `<div class="pinned-header">📌 Sesión</div><div class="action-list pinned-list">${items}</div><hr class="pinned-divider">`;
 }
 
+function createHumanForCurrentPreset() {
+    return create_human_from_preset(currentPresetId);
+}
+
+function renderPresetOptions() {
+    const el = $('preset-options');
+    if (!el) return;
+    el.innerHTML = HUMAN_PRESET_IDS.map(id => `
+        <button class="preset-option ${id === currentPresetId ? 'active' : ''}" onclick="selectPreset('${id}')">
+            <div class="preset-option-label">${t(`ui.preset_${id}_label`)}</div>
+            <div class="preset-option-desc">${t(`ui.preset_${id}_desc`)}</div>
+        </button>`).join('');
+}
+
+function selectPreset(presetId) {
+    if (!HUMAN_PRESET_IDS.includes(presetId)) return;
+    currentPresetId = presetId;
+    _human = createHumanForCurrentPreset();
+    allEvents = events_by_category();
+    applyStateToUI(human_to_dict(_human), _lastActions.slice(-3));
+    if (!currentCategory) {
+        renderCategories();
+    } else {
+        renderActionList(allEvents[currentCategory] || [], true);
+    }
+    renderPresetOptions();
+}
+
 function dismissOnboarding() {
     onboardingDismissed = true;
     const overlay = $('onboarding-overlay');
@@ -791,6 +904,8 @@ function updateStaticTranslations() {
     $('onboarding-persistent').textContent = t('ui.onboardingPersistent');
     $('onboarding-persistent-copy').textContent = t('ui.onboardingPersistentCopy');
     $('onboarding-copy-2').textContent = t('ui.onboardingCopy2');
+    $('preset-kicker').textContent = t('ui.presetKicker');
+    $('preset-copy').textContent = t('ui.presetCopy');
     $('start-btn').textContent = t('ui.start');
     $('reset-btn').textContent = t('ui.reset');
     $('lab-btn').textContent = t('ui.lab');
@@ -813,6 +928,7 @@ function updateStaticTranslations() {
         const node = document.querySelector(`[data-tip-id="${suffix}"]`);
         if (node) node.dataset.tip = t(key);
     });
+    renderPresetOptions();
 }
 
 function changeLocale(locale) {
@@ -843,7 +959,7 @@ function init() {
         _pinnedActions = pinnedParam.split(',').map(s => s.trim()).filter(Boolean);
     }
 
-    _human = create_human();
+    _human = createHumanForCurrentPreset();
     _events = make_events();
     _lastActions = [];
     allEvents = events_by_category();
@@ -1065,3 +1181,4 @@ window.toggleAudio     = toggleAudio;
 window.applyAction     = applyAction;
 window.selectCategory  = selectCategory;
 window.renderCategories = renderCategories;
+window.selectPreset    = selectPreset;
