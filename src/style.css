@@ -662,14 +662,6 @@ html, body {
     flex-direction: column;
 }
 
-#controls-topbar {
-    flex-shrink: 0;
-    padding: 10px 12px 0;
-    background: var(--bg);
-    display: flex;
-    justify-content: flex-end;
-}
-
 #category-bar {
     flex-shrink: 0;
     padding: 10px 12px 0;
@@ -680,6 +672,8 @@ html, body {
     flex-wrap: wrap;
     gap: 8px;
     padding-bottom: 2px;
+    justify-content: center;
+    align-items: center;
 }
 
 #action-area {
@@ -821,9 +815,6 @@ html, body {
 #reset-btn:active { background: rgba(255,255,255,0.1); }
 
 #stats-btn {
-    position: absolute;
-    top: 10px;
-    left: 86px;
     background: rgba(0,0,0,0.45);
     border: 1px solid var(--border);
     border-radius: 8px;
@@ -836,10 +827,17 @@ html, body {
 }
 #stats-btn:active { background: rgba(255,255,255,0.1); }
 
-#lab-btn {
+#top-actions {
     position: absolute;
     top: 10px;
-    left: 150px;
+    right: 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    z-index: 10;
+}
+
+#lab-btn {
     background: rgba(0,0,0,0.45);
     border: 1px solid var(--border);
     border-radius: 8px;
@@ -857,7 +855,8 @@ html, body {
     display: flex;
     align-items: center;
     flex: 0 0 auto;
-    padding: 2px 4px;
+    height: 27px;
+    padding: 2px 6px;
     border-radius: 8px;
     border: 1px solid var(--border);
     background: rgba(0,0,0,0.45);
@@ -870,6 +869,20 @@ html, body {
     font-size: 11px;
     outline: none;
     cursor: pointer;
+}
+
+@media (max-width: 640px) {
+    #top-actions {
+        top: 10px;
+        right: 10px;
+        gap: 6px;
+    }
+
+    #stats-btn,
+    #lab-btn {
+        padding: 4px 8px;
+        font-size: 10px;
+    }
 }
 
 /* ── Utility ─────────────────────────────────────────────── */

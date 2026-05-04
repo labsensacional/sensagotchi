@@ -51,8 +51,16 @@
         <div id="bg"></div>
 
         <button id="reset-btn" onclick="resetGame()">↺ reset</button>
-        <button id="stats-btn" onclick="toggleStats()">stats</button>
-        <a id="lab-btn" href="emotions-expression-test.html">lab →</a>
+        <div id="top-actions">
+            <button id="stats-btn" onclick="toggleStats()">stats</button>
+            <a id="lab-btn" href="emotions-expression-test.html">lab →</a>
+            <label id="lang-wrap">
+                <select id="lang-select" onchange="changeLocale(this.value)">
+                    <option value="es">ES</option>
+                    <option value="en">EN</option>
+                </select>
+            </label>
+        </div>
 
         <!-- Event notification overlay -->
         <div id="event-notification"></div>
@@ -76,14 +84,6 @@
 
     <!-- ── Controls panel ───────────────────────────────── -->
     <div id="controls">
-        <div id="controls-topbar">
-            <label id="lang-wrap">
-                <select id="lang-select" onchange="changeLocale(this.value)">
-                    <option value="es">ES</option>
-                    <option value="en">EN</option>
-                </select>
-            </label>
-        </div>
         <div id="category-bar">
             <!-- populated by JS -->
         </div>
@@ -92,8 +92,8 @@
         </div>
     </div>
 
-    <div id="stats-overlay" class="hidden">
-        <div id="stats-panel">
+    <div id="stats-overlay" class="hidden" onclick="toggleStats()">
+        <div id="stats-panel" onclick="event.stopPropagation()">
             <button id="stats-close-btn" onclick="toggleStats()">✕</button>
             <div id="hud">
                 <div id="hud-detail"></div>
