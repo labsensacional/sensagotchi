@@ -69,7 +69,6 @@ const ACTION_BG = {
     light_pain:           'pain',
     temperature_play:     'pain',
     deep_breathing:       'breathwork',
-    cold_face_immersion:  'breathwork',
     holotropic_breathing: 'breathwork',
     mdma:                 'drugs',
     weed:                 'drugs',

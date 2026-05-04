@@ -1072,28 +1072,6 @@ export function make_events() {
     'Deep, slow breathing exercises'
   );
 
-  function cold_face_immersion(h, eff = 1.0) {
-    h.anxiety += 5;               // cost: cold shock startle
-    h.energy -= 3;                // cost: not scaled
-    h.arousal -= 15 * eff;        // bradycardia, strong parasympathetic override
-    h.prefrontal -= 10;           // cost: not scaled
-    nt_boost(h, 'endorphins', 12 * eff);  // cold shock endorphin release
-    nt_boost(h, 'serotonin', 5 * eff);
-    h.anxiety -= 12 * eff;        // net calming after initial shock
-    h.absorption += 5 * eff;
-    h.sleepiness -= 10 * eff;     // alerting effect from cold
-  }
-
-  events['cold_face_immersion'] = new Event(
-    'cold_face_immersion',
-    0.05,
-    cold_face_immersion,
-    'breathwork',
-    (h) => h.energy > 10,
-    'Cold water face immersion - mammalian dive reflex',
-    'too exhausted'
-  );
-
   function holotropic_breathing(h, eff = 1.0) {
     h.energy -= 10;               // cost: not scaled
     h.prefrontal -= 25;           // cost: not scaled

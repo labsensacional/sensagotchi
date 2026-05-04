@@ -144,19 +144,6 @@ describe('Axioms', () => {
   });
 
   // -----------------------------------------------------------------
-  // Axiom 2: Dive reflex
-  // -----------------------------------------------------------------
-  it('test_axiom2_dive_reflex', () => {
-    const h = new Human();
-    h.arousal = 60;  // elevated arousal
-    const initial_arousal = h.arousal;
-
-    apply_event(h, 'cold_face_immersion', events['cold_face_immersion']);
-
-    expect(h.arousal).toBeLessThan(initial_arousal);
-  });
-
-  // -----------------------------------------------------------------
   // Axiom 3: Can't repeat forever
   // -----------------------------------------------------------------
   it('test_axiom3_cant_repeat_forever', () => {
