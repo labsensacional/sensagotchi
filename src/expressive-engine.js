@@ -35,11 +35,24 @@
     energy: 80,
     shutdown: 0,
     anandamide: 30,
-    physical_health: 80,
-    psychological_health: 70,
+    health: 75,
     life_stress: 0,
     ssri_level: 0,
   };
+
+  function getHealthValue(state, fallback = DEFAULT_EXPRESSIVE_STATE.health) {
+    if (typeof state.health === 'number') {
+      return state.health;
+    }
+    const physical = state.physical_health;
+    const psychological = state.psychological_health;
+    if (typeof physical === 'number' && typeof psychological === 'number') {
+      return Math.min(physical, psychological);
+    }
+    if (typeof physical === 'number') return physical;
+    if (typeof psychological === 'number') return psychological;
+    return fallback;
+  }
 
   const MOTION_PRESET_LIBRARY = {
     idle: {
@@ -207,17 +220,14 @@
     if ((state.energy ?? 100) <= 30) {
       classes.push('state-low-energy');
     }
-    if (Math.min(state.physical_health ?? 100, state.psychological_health ?? 100) <= 38) {
+    if (getHealthValue(state, 100) <= 38) {
       classes.push('state-health-critical');
     }
     return classes;
   }
 
   function getOverlayCues(state) {
-    const worstHealth = Math.min(
-      state.physical_health ?? 100,
-      state.psychological_health ?? 100
-    );
+    const worstHealth = getHealthValue(state, 100);
 
     const thoughtClouds = [
       {
@@ -234,25 +244,13 @@
       },
     ];
 
-    const callouts = [];
-    if ((state.psychological_health ?? 100) <= 38) {
-      callouts.push({
-        icon: '🧠',
-        labelKey: 'ui.callout_psych',
-        critical: (state.psychological_health ?? 100) <= 24,
-      });
-    }
-    if ((state.physical_health ?? 100) <= 38) {
-      callouts.push({
-        icon: '❤️',
-        labelKey: 'ui.callout_physical',
-        critical: (state.physical_health ?? 100) <= 24,
-      });
-    }
-
-    const visibleCallouts = callouts
-      .sort((a, b) => Number(b.critical) - Number(a.critical))
-      .slice(0, worstHealth <= 24 ? 2 : 1);
+    const visibleCallouts = worstHealth <= 38
+      ? [{
+          icon: '❤️',
+          labelKey: 'ui.hud_health',
+          critical: worstHealth <= 24,
+        }]
+      : [];
 
     return {
       thoughtClouds,
@@ -270,8 +268,7 @@
     const oxytocin = state.oxytocin ?? 0;
     const vasopressin = state.vasopressin ?? 0;
     const shutdown = state.shutdown ?? 0;
-    const physicalHealth = state.physical_health ?? 100;
-    const psychologicalHealth = state.psychological_health ?? 100;
+    const health = getHealthValue(state, 100);
     const liking = inferLikingScore(state);
 
     if (hunger >= 52) {
@@ -310,11 +307,11 @@
         reason: 'anxiety-driven autonomic activation',
       });
     }
-    if ((psychologicalHealth <= 42 && liking <= 34) || (energy <= 28 && psychologicalHealth <= 50)) {
+    if ((health <= 42 && liking <= 34) || (energy <= 28 && health <= 50)) {
       cues.push({
         id: 'whimper',
-        intensity: clamp(Math.max((42 - psychologicalHealth) / 42, (34 - liking) / 34, (28 - energy) / 28), 0.2, 1),
-        priority: psychologicalHealth <= 24 ? 92 : 72,
+        intensity: clamp(Math.max((42 - health) / 42, (34 - liking) / 34, (28 - energy) / 28), 0.2, 1),
+        priority: health <= 24 ? 92 : 72,
         cooldown_ms: 4800,
         reason: 'fragility, depletion, or low hedonic floor',
       });
@@ -328,7 +325,7 @@
         reason: 'high arousal with positive valence',
       });
     }
-    if (oxytocin >= 60 && anxiety <= 38 && psychologicalHealth >= 45) {
+    if (oxytocin >= 60 && anxiety <= 38 && health >= 45) {
       cues.push({
         id: 'warm_purr',
         intensity: clamp(((oxytocin - 60) / 40) * 0.7 + ((45 - anxiety) / 45) * 0.3, 0.2, 1),
@@ -337,7 +334,7 @@
         reason: 'bonding warmth and low threat',
       });
     }
-    if (vasopressin >= 58 && anxiety >= 38 && physicalHealth >= 24) {
+    if (vasopressin >= 58 && anxiety >= 38 && health >= 24) {
       cues.push({
         id: 'growl',
         intensity: clamp(((vasopressin - 58) / 42) * 0.7 + ((anxiety - 38) / 62) * 0.3, 0.2, 1),
@@ -372,9 +369,7 @@
     const hu = s.hunger / 100;
     const eg = s.energy / 100;
     const sh = s.shutdown / 100;
-    const ph = (s.physical_health ?? 80) / 100;
-    const psh = (s.psychological_health ?? 70) / 100;
-    const health = Math.min(ph, psh);
+    const health = getHealthValue(s, DEFAULT_EXPRESSIVE_STATE.health) / 100;
     const ana = (s.anandamide ?? 30) / 100;
 
     const emotionalTone = se * 0.35 + ox * 0.30 + ana * 0.35;

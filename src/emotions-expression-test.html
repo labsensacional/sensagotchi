@@ -9,14 +9,17 @@
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
-      background: #f0f0f0;
+      background:
+        radial-gradient(circle at top, rgba(79, 172, 254, 0.14), transparent 30%),
+        linear-gradient(180deg, #0a0a14, #070b12 58%, #0a0a14);
       display: flex;
       align-items: flex-start;
-      justify-content: center;
+      justify-content: stretch;
       min-height: 100vh;
-      font-family: system-ui, -apple-system, sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
       padding: 24px;
       gap: 24px;
+      color: rgba(255,255,255,0.9);
     }
 
     /* ── Left column: canvas + preset buttons ── */
@@ -25,14 +28,14 @@
       flex-direction: column;
       align-items: center;
       gap: 14px;
-      flex-shrink: 0;
+      flex: 1 1 auto;
       min-width: 0;
     }
 
     h1 {
       font-size: 1.0rem;
       font-weight: 700;
-      color: #333;
+      color: rgba(255,255,255,0.88);
       letter-spacing: 0.06em;
       text-transform: uppercase;
     }
@@ -40,14 +43,15 @@
     #nav {
       display: flex;
       gap: 6px;
+      align-self: flex-start;
     }
 
     #nav a {
-      padding: 5px 13px;
-      border: 2px solid #b0d8d8;
+      padding: 6px 13px;
+      border: 1px solid rgba(255,255,255,0.14);
       border-radius: 999px;
-      background: white;
-      color: #2a7a7a;
+      background: rgba(0,0,0,0.45);
+      color: rgba(255,255,255,0.72);
       font-size: 0.78rem;
       font-weight: 600;
       cursor: pointer;
@@ -55,8 +59,8 @@
       transition: all 0.15s ease;
     }
 
-    #nav a:hover  { background: #e0f5f5; border-color: #48b9b9; }
-    #nav a.active { background: #48b9b9; border-color: #48b9b9; color: white; }
+    #nav a:hover  { background: rgba(255,255,255,0.08); border-color: rgba(129, 236, 236, 0.28); color: rgba(255,255,255,0.88); }
+    #nav a.active { background: rgba(129, 236, 236, 0.14); border-color: rgba(129, 236, 236, 0.4); color: #81ecec; }
 
     #canvas-wrap {
       border-radius: 16px;
@@ -74,22 +78,119 @@
 
     #motion-stage {
       position: relative;
-      width: 480px;
-      height: 480px;
-      max-width: calc(100vw - 48px);
+      width: 100%;
+      height: min(78vh, 720px);
       display: grid;
       place-items: center;
       border-radius: 20px;
       overflow: hidden;
       background:
-        radial-gradient(circle at 50% 38%, rgba(72, 185, 185, 0.18), transparent 42%),
-        linear-gradient(180deg, #fbffff, #eef6f6);
-      box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+        radial-gradient(circle at 50% 34%, rgba(116, 185, 255, 0.18), transparent 38%),
+        linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.015)),
+        linear-gradient(180deg, #111726, #0c111c);
+      border: 1px solid rgba(255,255,255,0.08);
+      box-shadow: 0 18px 48px rgba(0,0,0,0.35);
     }
 
     #avatar-shell {
       position: absolute;
       inset: 0;
+    }
+
+    @keyframes thought-float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-6px); }
+    }
+
+    @keyframes thought-float-left {
+      0%, 100% { transform: translateY(0) scaleX(-1); }
+      50% { transform: translateY(-6px) scaleX(-1); }
+    }
+
+    .thought-cloud {
+      position: absolute;
+      z-index: 3;
+      pointer-events: none;
+      background: rgba(255, 255, 255, 0.94);
+      border-radius: 46% 54% 50% 50% / 54% 50% 50% 46%;
+      padding: 10px 16px;
+      font-size: 22px;
+      line-height: 1;
+      white-space: nowrap;
+      filter: drop-shadow(0 4px 14px rgba(0, 0, 0, 0.22));
+      animation: thought-float 3.2s ease-in-out infinite;
+      transition: opacity 0.2s ease;
+    }
+
+    .thought-cloud.hidden {
+      opacity: 0;
+      animation: none;
+    }
+
+    .thought-cloud::before,
+    .thought-cloud::after {
+      content: '';
+      position: absolute;
+      background: rgba(255, 255, 255, 0.92);
+      border-radius: 50%;
+    }
+
+    .thought-cloud::before {
+      width: 13px;
+      height: 13px;
+      bottom: -17px;
+      left: 30%;
+    }
+
+    .thought-cloud::after {
+      width: 8px;
+      height: 8px;
+      bottom: -29px;
+      left: 24%;
+    }
+
+    .thought-cloud-right {
+      top: 22%;
+      left: calc(50% + 112px);
+    }
+
+    .thought-cloud-left {
+      top: 34%;
+      right: calc(50% + 112px);
+      transform: scaleX(-1);
+      animation: thought-float-left 3.6s ease-in-out infinite;
+    }
+
+    .thought-cloud-left:not(.hidden) .thought-cloud-inner {
+      display: inline-block;
+      transform: scaleX(-1);
+    }
+
+    .thought-cloud.critical {
+      background: rgba(255, 248, 225, 0.96);
+      filter: drop-shadow(0 4px 16px rgba(230, 126, 34, 0.35));
+    }
+
+    @media (max-width: 640px) {
+      body {
+        padding: 0;
+        gap: 0;
+      }
+
+      .thought-cloud {
+        padding: 8px 12px;
+        font-size: 18px;
+      }
+
+      .thought-cloud-right {
+        top: 18%;
+        left: calc(50% + 50px);
+      }
+
+      .thought-cloud-left {
+        top: 31%;
+        right: calc(50% + 50px);
+      }
     }
 
     #avatar-container {
@@ -165,15 +266,15 @@
       flex-wrap: wrap;
       gap: 6px;
       justify-content: center;
-      max-width: 480px;
+      max-width: 720px;
     }
 
     button {
       padding: 6px 14px;
-      border: 2px solid #b0d8d8;
+      border: 1px solid rgba(255,255,255,0.14);
       border-radius: 999px;
-      background: white;
-      color: #2a7a7a;
+      background: rgba(0,0,0,0.45);
+      color: rgba(255,255,255,0.76);
       font-size: 0.78rem;
       font-weight: 600;
       cursor: pointer;
@@ -182,8 +283,8 @@
       letter-spacing: 0.02em;
     }
 
-    button:hover  { background: #e0f5f5; border-color: #48b9b9; }
-    button.active { background: #48b9b9; border-color: #48b9b9; color: white; }
+    button:hover  { background: rgba(255,255,255,0.08); border-color: rgba(129, 236, 236, 0.28); color: rgba(255,255,255,0.9); }
+    button.active { background: rgba(129, 236, 236, 0.14); border-color: rgba(129, 236, 236, 0.4); color: #81ecec; }
 
     /* ── Right column: slider panel ── */
     #panel {
@@ -191,9 +292,10 @@
       max-width: 420px;
       max-height: calc(100vh - 48px);
       overflow-y: auto;
-      background: white;
+      background: rgba(12, 16, 27, 0.9);
       border-radius: 16px;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.08);
+      border: 1px solid rgba(255,255,255,0.08);
+      box-shadow: 0 18px 48px rgba(0,0,0,0.28);
       padding: 18px 20px;
       display: flex;
       flex-direction: column;
@@ -205,9 +307,9 @@
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.10em;
-      color: #999;
+      color: rgba(255,255,255,0.38);
       padding: 10px 0 4px;
-      border-bottom: 1px solid #eee;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
       margin-bottom: 2px;
     }
 
@@ -221,7 +323,7 @@
 
     .slider-label {
       font-size: 0.76rem;
-      color: #555;
+      color: rgba(255,255,255,0.68);
       width: 88px;
       flex-shrink: 0;
       text-align: right;
@@ -230,13 +332,13 @@
     .slider-row input[type="range"] {
       flex: 1;
       height: 4px;
-      accent-color: #48b9b9;
+      accent-color: #81ecec;
       cursor: pointer;
     }
 
     .slider-val {
       font-size: 0.76rem;
-      color: #48b9b9;
+      color: #81ecec;
       font-weight: 700;
       width: 26px;
       text-align: right;
@@ -244,10 +346,10 @@
     }
 
     .inspect-card {
-      border: 1px solid #e7eeee;
+      border: 1px solid rgba(255,255,255,0.08);
       border-radius: 14px;
       padding: 12px;
-      background: #f8fcfc;
+      background: rgba(255,255,255,0.035);
       display: grid;
       gap: 8px;
       margin-bottom: 8px;
@@ -258,7 +360,7 @@
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.10em;
-      color: #6b8f8f;
+      color: rgba(129, 236, 236, 0.78);
     }
 
     .inspect-row {
@@ -266,13 +368,13 @@
       justify-content: space-between;
       gap: 12px;
       font-size: 0.8rem;
-      color: #355;
+      color: rgba(255,255,255,0.8);
     }
 
     .inspect-row code {
       font-size: 0.76rem;
-      color: #2a7a7a;
-      background: #eaf6f6;
+      color: #81ecec;
+      background: rgba(129, 236, 236, 0.12);
       padding: 2px 6px;
       border-radius: 999px;
     }
@@ -290,9 +392,9 @@
       border-radius: 999px;
       padding: 5px 9px;
       font-size: 0.74rem;
-      background: #eaf6f6;
-      color: #246868;
-      border: 1px solid #d3ecec;
+      background: rgba(129, 236, 236, 0.12);
+      color: #b6ffff;
+      border: 1px solid rgba(129, 236, 236, 0.18);
     }
 
     .cue-list, .catalog-list {
@@ -301,10 +403,10 @@
     }
 
     .cue-item, .catalog-item {
-      border: 1px solid #edf1f1;
+      border: 1px solid rgba(255,255,255,0.08);
       border-radius: 12px;
       padding: 10px;
-      background: #fff;
+      background: rgba(255,255,255,0.025);
       display: grid;
       gap: 4px;
     }
@@ -315,24 +417,24 @@
       gap: 10px;
       align-items: baseline;
       font-size: 0.8rem;
-      color: #233;
+      color: rgba(255,255,255,0.82);
     }
 
     .cue-meta, .catalog-meta {
       font-size: 0.72rem;
-      color: #678;
+      color: rgba(255,255,255,0.48);
     }
 
     .muted {
       font-size: 0.74rem;
-      color: #789;
+      color: rgba(255,255,255,0.54);
     }
 
     @media (max-width: 640px) {
       body {
         flex-direction: column;
         align-items: center;
-        padding: 16px;
+        padding: 0;
         gap: 16px;
         overflow-y: auto;
       }
@@ -341,18 +443,30 @@
         width: 100%;
       }
 
-      #canvas-wrap {
-        width: min(480px, 100%);
-      }
-
       #presets {
         max-width: 100%;
+      }
+
+      #motion-stage {
+        border-radius: 0;
+        height: 62vh;
       }
 
       #panel {
         width: 100%;
         max-width: 100%;
         max-height: none;
+        border-radius: 0;
+      }
+
+      #nav {
+        padding: 16px 16px 0;
+      }
+
+      h1,
+      #presets {
+        padding-left: 16px;
+        padding-right: 16px;
       }
     }
   </style>
@@ -366,6 +480,8 @@
     <h1>Sensagotchi — State Lab</h1>
     <div id="motion-stage">
       <div id="avatar-shell">
+        <div id="thought-hunger" class="thought-cloud thought-cloud-right hidden"></div>
+        <div id="thought-energy" class="thought-cloud thought-cloud-left hidden"></div>
         <div id="avatar-container">
           <div id="avatar-canvas-wrap"></div>
         </div>
@@ -382,6 +498,27 @@
     let state = { ...window.ExpressiveEngine.DEFAULT_EXPRESSIVE_STATE };
     const sliderEls = {};
     const engine = window.ExpressiveEngine;
+
+    function updateThoughtCloud(id, show, critical, emojis) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      if (!show) {
+        el.classList.add('hidden');
+        el.classList.remove('critical');
+        return;
+      }
+      el.innerHTML = `<span class="thought-cloud-inner">${emojis}</span>`;
+      el.classList.remove('hidden');
+      el.classList.toggle('critical', critical);
+    }
+
+    function syncOverlays() {
+      const overlays = engine.getOverlayCues(state);
+      overlays.thoughtClouds.forEach((cloud) => {
+        updateThoughtCloud(cloud.id, cloud.show, cloud.critical, cloud.emojis);
+      });
+      return overlays;
+    }
 
     function applyMotionProfile() {
       const motion = engine.getMotionProfile(state);
@@ -403,7 +540,7 @@
 
       const motion = engine.getMotionProfile(state);
       const visualClasses = engine.getVisualStateClasses(state);
-      const overlays = engine.getOverlayCues(state);
+      const overlays = syncOverlays();
       const soundCues = engine.getSoundCues(state);
 
       inspector.innerHTML = `
@@ -467,8 +604,8 @@
 
     function syncState() {
       applyMotionProfile();
-      renderInspector();
       updateMonsterFromApp(state);
+      renderInspector();
     }
 
     // ── Build slider panel ────────────────────────────────────────────────────

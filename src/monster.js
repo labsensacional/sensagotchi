@@ -965,7 +965,7 @@ const SLIDER_GROUPS = [
   { label: 'Neurotransmitters', keys: ['dopamine','oxytocin','endorphins','serotonin','prolactin','vasopressin'] },
   { label: 'Physiological',     keys: ['arousal','energy','sleepiness'] },
   { label: 'Mental',            keys: ['anxiety','absorption','prefrontal','hunger'] },
-  { label: 'Health',            keys: ['physical_health','psychological_health'] },
+  { label: 'Health',            keys: ['health'] },
   { label: 'Context',           keys: ['life_stress','ssri_level'] },
   { label: 'Special',           keys: ['shutdown'] },
 ];

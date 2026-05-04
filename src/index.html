@@ -35,35 +35,12 @@
 <div id="app">
     <div id="onboarding-overlay">
         <div id="onboarding-card">
-            <div id="onboarding-layout">
-                <div class="onboarding-main">
-                    <div class="overlay-kicker" id="onboarding-kicker">sensagotchi</div>
-                    <h1 id="onboarding-title">armá tu monstruito y leé el estado del sistema</h1>
-                    <p class="overlay-copy" id="onboarding-copy-1">
-                        Esto no es un tamagotchi clásico: estás manejando un sistema nervioso. Algunas cosas pegan
-                        ahora mismo; otras cambian el contexto y te condicionan por bastante tiempo.
-                    </p>
-                    <div class="intro-points">
-                        <div class="intro-point">
-                            <span class="intro-badge immediate" id="onboarding-immediate">acción inmediata</span>
-                            <p id="onboarding-immediate-copy">Da alivio, placer o desgaste rápido. Mirá cómo se mueven las barras y qué te devuelve el monstruito.</p>
-                        </div>
-                        <div class="intro-point">
-                            <span class="intro-badge persistent" id="onboarding-persistent">estado global</span>
-                            <p id="onboarding-persistent-copy">Cambia el contexto de fondo. Puede hacer que otras acciones funcionen mejor o peor más adelante.</p>
-                        </div>
-                    </div>
-                    <p class="overlay-copy compact" id="onboarding-copy-2">
-                        Objetivo base: mantener salud física y psicológica sin perder de vista hambre, energía, ansiedad y sueño.
-                    </p>
-                </div>
-                <div class="preset-section">
-                    <div class="overlay-kicker" id="preset-kicker">preset inicial</div>
-                    <p class="overlay-copy compact" id="preset-copy">
-                        Elegí un contexto de arranque. Cambia rasgos globales y el estado base del sistema.
-                    </p>
-                    <div id="preset-options"></div>
-                </div>
+            <div class="overlay-kicker" id="onboarding-title">SENSAGOTCHI</div>
+            <div class="preset-section preset-section-only">
+                <p class="overlay-copy compact" id="preset-copy">
+                    Elegí un contexto de arranque. Cambia rasgos globales y el estado base del sistema.
+                </p>
+                <div id="preset-options"></div>
             </div>
             <button id="start-btn" onclick="dismissOnboarding()">empezar</button>
         </div>
@@ -74,56 +51,8 @@
         <div id="bg"></div>
 
         <button id="reset-btn" onclick="resetGame()">↺ reset</button>
+        <button id="stats-btn" onclick="toggleStats()">stats</button>
         <a id="lab-btn" href="emotions-expression-test.html">lab →</a>
-
-        <!-- HUD bars: tap anywhere to toggle detail panel -->
-        <div id="hud" onclick="this.classList.toggle('open'); event.stopPropagation()">
-            <div class="hud-row" id="hud-row-hunger">
-                <span class="hud-label" data-tip="hunger" data-tip-id="hunger">🍔</span>
-                <div class="hud-track">
-                    <div class="hud-fill" id="hud-hunger" style="--color:#e67e22"></div>
-                </div>
-                <span class="hud-value" id="hud-value-hunger">0</span>
-            </div>
-            <div class="hud-row" id="hud-row-anxiety">
-                <span class="hud-label" data-tip="anxiety" data-tip-id="anxiety">😰</span>
-                <div class="hud-track">
-                    <div class="hud-fill" id="hud-anxiety" style="--color:#ee5a24"></div>
-                </div>
-                <span class="hud-value" id="hud-value-anxiety">0</span>
-            </div>
-            <div class="hud-row" id="hud-row-sleepiness">
-                <span class="hud-label" data-tip="sleepiness" data-tip-id="sleepiness">😴</span>
-                <div class="hud-track">
-                    <div class="hud-fill" id="hud-sleepiness" style="--color:#636e72"></div>
-                </div>
-                <span class="hud-value" id="hud-value-sleepiness">0</span>
-            </div>
-            <div class="hud-spacer"></div>
-            <div class="hud-row" id="hud-row-psych">
-                <span class="hud-label" data-tip="psychological health" data-tip-id="psych">🧠</span>
-                <div class="hud-track">
-                    <div class="hud-fill" id="hud-psych" style="--color:#a29bfe"></div>
-                </div>
-                <span class="hud-value" id="hud-value-psych">0</span>
-            </div>
-            <div class="hud-row" id="hud-row-physical">
-                <span class="hud-label" data-tip="physical health" data-tip-id="physical">❤️</span>
-                <div class="hud-track">
-                    <div class="hud-fill" id="hud-physical" style="--color:#ff7675"></div>
-                </div>
-                <span class="hud-value" id="hud-value-physical">0</span>
-            </div>
-            <div class="hud-row" id="hud-row-energy">
-                <span class="hud-label" data-tip="energy" data-tip-id="energy">⚡</span>
-                <div class="hud-track">
-                    <div class="hud-fill" id="hud-energy" style="--color:#00b894"></div>
-                </div>
-                <span class="hud-value" id="hud-value-energy">0</span>
-            </div>
-            <!-- Detail panel: tap HUD to toggle -->
-            <div id="hud-detail"></div>
-        </div>
 
         <!-- Event notification overlay -->
         <div id="event-notification"></div>
@@ -145,37 +74,30 @@
         <button id="audio-btn" onclick="toggleAudio()" title="Toggle sound">🔇</button>
     </div>
 
-    <!-- ── Recent actions strip ─────────────────────────── -->
-    <div id="recent-actions">
-        <span class="recent-label">recent:</span>
-    </div>
-
     <!-- ── Controls panel ───────────────────────────────── -->
     <div id="controls">
-        <div id="search-wrap">
-            <input id="search-input" type="text"
-                   placeholder="🔍 search actions..."
-                   autocomplete="off"
-                   autocorrect="off"
-                   spellcheck="false">
+        <div id="controls-topbar">
             <label id="lang-wrap">
-                <span id="lang-label">idioma</span>
                 <select id="lang-select" onchange="changeLocale(this.value)">
                     <option value="es">ES</option>
                     <option value="en">EN</option>
                 </select>
             </label>
         </div>
-        <div id="action-legend">
-            <span class="legend-pill immediate" id="legend-immediate">acción inmediata</span>
-            <span class="legend-pill persistent" id="legend-persistent">estado global</span>
-        </div>
-        <div id="global-state-panel"></div>
         <div id="category-bar">
             <!-- populated by JS -->
         </div>
         <div id="action-area">
             <!-- populated by JS -->
+        </div>
+    </div>
+
+    <div id="stats-overlay" class="hidden">
+        <div id="stats-panel">
+            <button id="stats-close-btn" onclick="toggleStats()">✕</button>
+            <div id="hud">
+                <div id="hud-detail"></div>
+            </div>
         </div>
     </div>
 

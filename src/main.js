@@ -22,6 +22,18 @@ let onboardingDismissed = false;
 let currentPresetId = 'default';
 const HUMAN_PRESET_IDS = Object.keys(get_human_presets());
 
+function getCombinedHealth(state) {
+    if (Number.isFinite(state.health)) return state.health;
+    const physical = state.physical_health;
+    const psychological = state.psychological_health;
+    if (Number.isFinite(physical) && Number.isFinite(psychological)) {
+        return (physical + psychological) / 2;
+    }
+    if (Number.isFinite(physical)) return physical;
+    if (Number.isFinite(psychological)) return psychological;
+    return 0;
+}
+
 // ── Category metadata ──────────────────────────────────────────
 const CAT_META = {
     sexual:    { emoji: '💫', labelKey: 'ui.category_sexual'    },
@@ -77,6 +89,15 @@ const ACTION_BG = {
 // ── DOM helpers ────────────────────────────────────────────────
 function $(id) { return document.getElementById(id); }
 
+function getActionDescription(action) {
+    const raw = (action.description || '').trim();
+    const name = (action.display_name || actionLabel(action.name) || '').trim();
+    if (!raw || !name) return raw;
+    const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const prefixPattern = new RegExp(`^${escapedName}\\s*[:\\-–—]\\s*`, 'i');
+    return raw.replace(prefixPattern, '').trim();
+}
+
 function updateAvatar(s) {
     // Update p5.js monster visual state
     if (window.updateMonsterFromApp) window.updateMonsterFromApp(s);
@@ -124,49 +145,11 @@ function updateStateCallouts(state) {
     el.innerHTML = cues.callouts.map(item => `
         <div class="state-callout ${item.critical ? 'critical' : ''}">
             <span>${item.icon}</span>
-            <span>${t(item.labelKey)}</span>
         </div>`).join('');
 }
 
 function updateHUD(s) {
-    const bars = [
-        { id: 'hud-hunger',    val: s.hunger              },
-        { id: 'hud-anxiety',   val: s.anxiety             },
-        { id: 'hud-sleepiness',val: s.sleepiness          },
-        { id: 'hud-psych',     val: s.psychological_health},
-        { id: 'hud-physical',  val: s.physical_health     },
-        { id: 'hud-energy',    val: s.energy              },
-    ];
-    bars.forEach(({ id, val }) => {
-        const el = $(id);
-        if (el) el.style.width = `${Math.max(0, Math.min(100, val))}%`;
-    });
-    updateHUDUrgency(s);
     updateHUDDetail(s);
-}
-
-function setHUDRowState(key, value, { badWhenHigh = false, warning = 60, critical = 80 } = {}) {
-    const row = $(`hud-row-${key}`);
-    const valueEl = $(`hud-value-${key}`);
-    if (valueEl) valueEl.textContent = `${Math.round(value)}`;
-    if (!row) return;
-    row.classList.remove('is-warning', 'is-critical');
-    const isCritical = badWhenHigh ? value >= critical : value <= critical;
-    const isWarning = badWhenHigh ? value >= warning : value <= warning;
-    if (isCritical) {
-        row.classList.add('is-critical');
-    } else if (isWarning) {
-        row.classList.add('is-warning');
-    }
-}
-
-function updateHUDUrgency(s) {
-    setHUDRowState('hunger', s.hunger, { badWhenHigh: true, warning: 60, critical: 78 });
-    setHUDRowState('anxiety', s.anxiety, { badWhenHigh: true, warning: 60, critical: 78 });
-    setHUDRowState('sleepiness', s.sleepiness, { badWhenHigh: true, warning: 65, critical: 82 });
-    setHUDRowState('psych', s.psychological_health, { badWhenHigh: false, warning: 42, critical: 28 });
-    setHUDRowState('physical', s.physical_health, { badWhenHigh: false, warning: 42, critical: 28 });
-    setHUDRowState('energy', s.energy, { badWhenHigh: false, warning: 35, critical: 20 });
 }
 
 // Color per field (CSS custom property --dc on .detail-fill)
@@ -176,47 +159,49 @@ const DETAIL_COLORS = {
     arousal:              '#a29bfe', energy:               '#00b894', sleepiness:  '#636e72',
     hunger:               '#e67e22', anxiety:              '#ee5a24', prefrontal:  '#0984e3',
     absorption:           '#6c5ce7', shutdown:             '#2d3436',
+    combined_health:      '#74b9ff',
     physical_health:      '#55efc4', psychological_health: '#74b9ff',
 };
 
 const DETAIL_GROUPS = [
-    { labelKey: 'ui.detail_neuro', rows: [
-        ['dopamine',    'dopamine'   ],
-        ['serotonin',   'serotonin'  ],
-        ['endorphins',  'endorphins' ],
-        ['oxytocin',    'oxytocin'   ],
-        ['prolactin',   'prolactin'  ],
-        ['vasopressin', 'vasopressin'],
+    { emoji: '🧪', labelKey: 'ui.detail_neuro', rows: [
+        ['dopamine',    'ui.detail_dopamine'   ],
+        ['serotonin',   'ui.detail_serotonin'  ],
+        ['endorphins',  'ui.detail_endorphins' ],
+        ['oxytocin',    'ui.detail_oxytocin'   ],
+        ['prolactin',   'ui.detail_prolactin'  ],
+        ['vasopressin', 'ui.detail_vasopressin'],
     ]},
-    { labelKey: 'ui.detail_body', rows: [
+    { emoji: '🫀', labelKey: 'ui.detail_body', rows: [
         ['arousal',    'ui.detail_arousal'   ],
-        ['energy',     'energy'    ],
-        ['sleepiness', 'sleepiness'],
-        ['hunger',     'hunger'    ],
+        ['energy',     'ui.hud_energy'    ],
+        ['sleepiness', 'ui.hud_sleepiness'],
+        ['hunger',     'ui.hud_hunger'    ],
     ]},
-    { labelKey: 'ui.detail_mind', rows: [
-        ['anxiety',    'anxiety'   ],
-        ['prefrontal', 'prefrontal'],
-        ['absorption', 'absorption'],
-        ['shutdown',   'shutdown'  ],
+    { emoji: '🧠', labelKey: 'ui.detail_mind', rows: [
+        ['anxiety',    'ui.hud_anxiety'      ],
+        ['prefrontal', 'ui.detail_prefrontal'],
+        ['absorption', 'ui.detail_absorption'],
+        ['shutdown',   'ui.detail_shutdown'  ],
     ]},
-    { labelKey: 'ui.detail_health', rows: [
-        ['physical_health',      'ui.detail_physical'     ],
-        ['psychological_health', 'ui.detail_psychological'],
+    { emoji: '❤️', labelKey: 'ui.detail_health', rows: [
+        ['combined_health', 'ui.hud_health'],
     ]},
 ];
 
 function updateHUDDetail(s) {
     const el = $('hud-detail');
     if (!el) return;
+    const detailState = { ...s, combined_health: getCombinedHealth(s) };
     el.innerHTML = DETAIL_GROUPS.map(g => `
         <div class="detail-group">
-            <div class="detail-group-label">${t(g.labelKey)}</div>
+            <div class="detail-group-label"><span class="detail-group-emoji">${g.emoji}</span><span>${t(g.labelKey)}</span></div>
             ${g.rows.map(([key, label]) => {
-                const val = Math.round(s[key] ?? 0);
+                const rawVal = detailState[key];
+                const val = Math.round(Number.isFinite(rawVal) ? rawVal : 0);
                 const col = DETAIL_COLORS[key] || 'rgba(255,255,255,0.45)';
                 return `<div class="detail-row">
-                    <span class="detail-key">${label.includes('.') ? t(label) : label}</span>
+                    <span class="detail-key">${t(label)}</span>
                     <div class="detail-bar">
                         <div class="detail-fill" style="width:${val}%;--dc:${col}"></div>
                     </div>
@@ -227,29 +212,31 @@ function updateHUDDetail(s) {
 }
 
 function human_to_dict(h) {
+    const safe = (value) => Number.isFinite(value) ? Math.round(value * 10) / 10 : 0;
     return {
-        dopamine:             Math.round(h.dopamine * 10) / 10,
-        oxytocin:             Math.round(h.oxytocin * 10) / 10,
-        endorphins:           Math.round(h.endorphins * 10) / 10,
-        serotonin:            Math.round(h.serotonin * 10) / 10,
-        prolactin:            Math.round(h.prolactin * 10) / 10,
-        vasopressin:          Math.round(h.vasopressin * 10) / 10,
-        arousal:              Math.round(h.arousal * 10) / 10,
-        prefrontal:           Math.round(h.prefrontal * 10) / 10,
-        sleepiness:           Math.round(h.sleepiness * 10) / 10,
-        anxiety:              Math.round(h.anxiety * 10) / 10,
-        absorption:           Math.round(h.absorption * 10) / 10,
-        hunger:               Math.round(h.hunger * 10) / 10,
-        energy:               Math.round(h.energy * 10) / 10,
-        physical_health:      Math.round(h.physical_health * 10) / 10,
-        psychological_health: Math.round(h.psychological_health * 10) / 10,
-        sexual_inhibition:    Math.round(h.sexual_inhibition * 10) / 10,
-        shutdown:             Math.round(h.shutdown * 10) / 10,
-        life_stress:          Math.round(h.life_stress * 10) / 10,
-        ssri_level:           Math.round(h.ssri_level * 10) / 10,
-        testosterone:         Math.round(h.testosterone * 10) / 10,
-        liking_score:         Math.round(h.liking_score() * 10) / 10,
-        wanting_score:        Math.round(h.wanting_score() * 10) / 10,
+        dopamine:             safe(h.dopamine),
+        oxytocin:             safe(h.oxytocin),
+        endorphins:           safe(h.endorphins),
+        serotonin:            safe(h.serotonin),
+        prolactin:            safe(h.prolactin),
+        vasopressin:          safe(h.vasopressin),
+        arousal:              safe(h.arousal),
+        prefrontal:           safe(h.prefrontal),
+        sleepiness:           safe(h.sleepiness),
+        anxiety:              safe(h.anxiety),
+        absorption:           safe(h.absorption),
+        hunger:               safe(h.hunger),
+        energy:               safe(h.energy),
+        health:               safe(h.health),
+        physical_health:      safe(h.physical_health),
+        psychological_health: safe(h.psychological_health),
+        sexual_inhibition:    safe(h.sexual_inhibition),
+        shutdown:             safe(h.shutdown),
+        life_stress:          safe(h.life_stress),
+        ssri_level:           safe(h.ssri_level),
+        testosterone:         safe(h.testosterone),
+        liking_score:         safe(h.liking_score()),
+        wanting_score:        safe(h.wanting_score()),
         is_viable:            h.is_viable(),
     };
 }
@@ -302,11 +289,7 @@ function updateBackground(actionName) {
 }
 
 function updateRecentActions(lastActions) {
-    const el = $('recent-actions');
-    const chips = lastActions.slice().reverse().map(a =>
-        `<span class="recent-chip" onclick="applyAction('${a}')">${actionLabel(a)}</span>`
-    ).join('');
-    el.innerHTML = `<span class="recent-label">${t('ui.recent')}</span>${chips}`;
+    return lastActions;
 }
 
 // Color per notification type
@@ -334,28 +317,15 @@ function notificationDuration(text) {
 }
 
 function showEventNotification(text, type) {
-    const el = $('event-notification');
-    if (!el) return;
-
-    // Clear any existing timer so previous message doesn't cut the new one short
-    if (_notifTimer) { clearTimeout(_notifTimer); _notifTimer = null; }
-
-    const translatedText = translateNotification(text);
-    const color = NOTIF_COLORS[type] || 'rgba(255,255,255,0.9)';
-    el.innerHTML = `<div class="event-notif" style="--notif-color:${color}">${translatedText}</div>`;
-    const durationMs = notificationDuration(translatedText);
-
-    _notifTimer = setTimeout(() => {
-        el.innerHTML = '';
-        _notifTimer = null;
-    }, durationMs);
+    void text;
+    void type;
 }
 
 // ── Action summary notification ────────────────────────────
 const _SUMMARY_VARS = [
     'dopamine','serotonin','endorphins','oxytocin','prolactin','vasopressin',
     'arousal','energy','sleepiness','hunger','anxiety','prefrontal','absorption',
-    'physical_health','psychological_health',
+    'health',
 ];
 
 function buildActionSummary(before, after) {
@@ -444,20 +414,11 @@ function getContextReminder(state) {
 }
 
 function updateMonsterStatusBanner(state) {
+    void state;
     const el = $('monster-status-banner');
     if (!el) return;
-    const active = getActiveGlobalStates(state).filter(item => item.tone === 'persistent');
-    if (!active.length) {
-        el.innerHTML = '';
-        el.className = '';
-        return;
-    }
-
-    const primary = active[0];
-    el.className = `banner-${primary.label.includes('shutdown') ? 'shutdown' : primary.label.includes('ssri') ? 'ssri' : 'stress'}`;
-    el.innerHTML = `
-        <div class="monster-status-kicker">${t('ui.monsterStatus')}</div>
-        <div class="monster-status-copy">${primary.banner}</div>`;
+    el.innerHTML = '';
+    el.className = '';
 }
 
 function updateGlobalVisualState(state) {
@@ -519,8 +480,7 @@ function buildImmediateFeedback(action, before, after, finalState) {
     if (delta('arousal') >= 12) bits.push(t('ui.notif_arousal_up'));
     if (delta('hunger') <= -10) bits.push(t('ui.notif_hunger_down'));
     if (delta('hunger') >= 10) bits.push(t('ui.notif_hunger_up'));
-    if (delta('physical_health') <= -3) bits.push(t('ui.notif_body_hit'));
-    if (delta('psychological_health') <= -3) bits.push(t('ui.notif_mind_hit'));
+    if (delta('health') <= -3) bits.push(t('ui.notif_health_hit'));
 
     const primary = joinPhrases(bits.slice(0, 2));
     const parts = [];
@@ -564,10 +524,8 @@ function buildNarrativeFeedback(action, before, after, finalState) {
     if (delta('absorption') >= 10) leads.push(getLocale() === 'es' ? 'te metió más en la experiencia' : 'it pulled the monster deeper into the experience');
     if (delta('prefrontal') <= -10) costs.push(getLocale() === 'es' ? 'te soltó el control' : 'it loosened top-down control');
 
-    if (delta('psychological_health') >= 3) leads.push(getLocale() === 'es' ? 'te estabilizó un poco' : 'it stabilized the system a bit');
-    if (delta('psychological_health') <= -3) costs.push(getLocale() === 'es' ? 'te pegó en la salud psicológica' : 'it hurt psychological health');
-    if (delta('physical_health') >= 3) leads.push(getLocale() === 'es' ? 'mejoró el cuerpo' : 'it improved the body');
-    if (delta('physical_health') <= -3) costs.push(getLocale() === 'es' ? 'castigó el cuerpo' : 'it hurt the body');
+    if (delta('health') >= 3) leads.push(getLocale() === 'es' ? 'mejoró la salud' : 'health improved');
+    if (delta('health') <= -3) costs.push(getLocale() === 'es' ? 'te pegó en la salud' : 'it hurt health');
 
     const intro = mode === 'persistent'
         ? (getLocale() === 'es' ? 'Cambió el contexto de fondo.' : 'It changed the background context.')
@@ -597,11 +555,8 @@ function explainDeath(state) {
     const causes = [];
     const factors = [];
 
-    if (state.physical_health <= 0) {
-        causes.push(t('ui.death_physical'));
-    }
-    if (state.psychological_health <= 0) {
-        causes.push(t('ui.death_psychological'));
+    if (state.health <= 0) {
+        causes.push(t('ui.death_health'));
     }
 
     if (state.anxiety >= 70) factors.push(t('ui.factor_anxiety', { value: Math.round(state.anxiety) }));
@@ -612,7 +567,7 @@ function explainDeath(state) {
     if (state.arousal >= 80 && state.anxiety >= 60) factors.push(t('ui.factor_overload'));
 
     const cause = causes.length ? causes.join(' + ') : t('ui.death_systemic');
-    const summary = t('ui.summaryLabel', { physical: Math.round(state.physical_health), psychological: Math.round(state.psychological_health) });
+    const summary = t('ui.summaryLabel', { health: Math.round(state.health) });
     return { cause, summary, factors };
 }
 
@@ -650,7 +605,7 @@ function updateDeathScreen(state, lastActions) {
 
 // ── Death screen ───────────────────────────────────────────
 function checkDeath(state) {
-    if (state.physical_health <= 0 || state.psychological_health <= 0) {
+    if (state.health <= 0) {
         updateDeathScreen(state, _lastActions);
         const el = $('death-screen');
         if (el) el.classList.remove('hidden');
@@ -713,33 +668,34 @@ function renderActionList(actions, showBack) {
         <div class="action-item ${a.can_apply ? '' : 'disabled'}"
              onclick="${a.can_apply ? `applyAction('${a.name}')` : ''}">
             <div class="action-name">${a.display_name || actionLabel(a.name)}</div>
-            <div class="action-desc">${a.description}</div>
-            ${renderActionMeta(a)}
+            <div class="action-desc">${getActionDescription(a)}</div>
             ${!a.can_apply && a.blocked_reason ? `<div class="action-blocked-reason">⚠ ${a.blocked_reason}</div>` : ''}
-            ${a.note ? `<div class="action-note">⚠ ${a.note}</div>` : ''}
         </div>`).join('');
     area.innerHTML = `${back}<div class="action-list">${items}</div>`;
 }
 
 // ── Search ─────────────────────────────────────────────────────
-$('search-input').addEventListener('input', function () {
-    const q = this.value.toLowerCase().trim();
-    renderCategoryBar();
-    if (!q) {
-        ensureCurrentCategory();
-        renderActionList(allEvents[currentCategory] || [], false);
-        return;
-    }
-    const results = [];
-    for (const acts of Object.values(allEvents)) {
-        for (const a of acts) {
-            if (a.name.includes(q) || a.description.toLowerCase().includes(q)) {
-                results.push(a);
+const searchInput = $('search-input');
+if (searchInput !== null) {
+    searchInput.addEventListener('input', function () {
+        const q = this.value.toLowerCase().trim();
+        renderCategoryBar();
+        if (!q) {
+            ensureCurrentCategory();
+            renderActionList(allEvents[currentCategory] || [], false);
+            return;
+        }
+        const results = [];
+        for (const acts of Object.values(allEvents)) {
+            for (const a of acts) {
+                if (a.name.includes(q) || a.description.toLowerCase().includes(q)) {
+                    results.push(a);
+                }
             }
         }
-    }
-    renderActionList(results, false);
-});
+        renderActionList(results, false);
+    });
+}
 
 // ── Apply action ───────────────────────────────────────────────
 function applyAction(name) {
@@ -777,7 +733,7 @@ function applyAction(name) {
     if (checkDeath(finalState)) return;
 
     // Re-render current view with updated can_apply
-    const q = $('search-input').value.trim();
+    const q = $('search-input')?.value.trim();
     if (q) {
         $('search-input').dispatchEvent(new Event('input'));
     } else {
@@ -814,9 +770,6 @@ function renderPinnedSection() {
             <div class="action-item pinned ${a.can_apply ? '' : 'disabled'}"
                  onclick="${a.can_apply ? `applyAction('${a.name}')` : ''}">
                 <div class="action-name">${a.display_name || actionLabel(a.name)}</div>
-                <div class="action-desc">${a.description}</div>
-                ${renderActionMeta(a)}
-                ${!a.can_apply && a.blocked_reason ? `<div class="action-blocked-reason">⚠ ${a.blocked_reason}</div>` : ''}
             </div>`).join('');
     return `<div class="pinned-header">📌 Sesión</div><div class="action-list pinned-list">${items}</div><hr class="pinned-divider">`;
 }
@@ -853,26 +806,23 @@ function dismissOnboarding() {
     if (overlay) overlay.classList.add('hidden');
 }
 
+function toggleStats() {
+    const overlay = $('stats-overlay');
+    if (!overlay) return;
+    const open = overlay.classList.contains('hidden');
+    overlay.classList.toggle('hidden', !open);
+    document.body.classList.toggle('stats-open', open);
+}
+
 function updateStaticTranslations() {
     document.documentElement.lang = getLocale();
     document.title = t('ui.title');
-    $('onboarding-kicker').textContent = t('ui.onboardingKicker');
-    $('onboarding-title').textContent = t('ui.onboardingTitle');
-    $('onboarding-copy-1').textContent = t('ui.onboardingCopy1');
-    $('onboarding-immediate').textContent = t('ui.onboardingImmediate');
-    $('onboarding-immediate-copy').textContent = t('ui.onboardingImmediateCopy');
-    $('onboarding-persistent').textContent = t('ui.onboardingPersistent');
-    $('onboarding-persistent-copy').textContent = t('ui.onboardingPersistentCopy');
-    $('onboarding-copy-2').textContent = t('ui.onboardingCopy2');
-    $('preset-kicker').textContent = t('ui.presetKicker');
+    $('onboarding-title').textContent = t('ui.title');
     $('preset-copy').textContent = t('ui.presetCopy');
     $('start-btn').textContent = t('ui.start');
     $('reset-btn').textContent = t('ui.reset');
+    $('stats-btn').textContent = t('ui.stats');
     $('lab-btn').textContent = t('ui.lab');
-    $('lang-label').textContent = t('ui.langLabel');
-    $('search-input').placeholder = t('ui.searchPlaceholder');
-    $('legend-immediate').textContent = t('ui.immediate');
-    $('legend-persistent').textContent = t('ui.persistent');
     $('death-msg').textContent = t('ui.deathTitle');
     $('death-reset').textContent = t('ui.deathReset');
 
@@ -880,8 +830,7 @@ function updateStaticTranslations() {
         hunger: 'ui.hud_hunger',
         anxiety: 'ui.hud_anxiety',
         sleepiness: 'ui.hud_sleepiness',
-        psych: 'ui.hud_psychological_health',
-        physical: 'ui.hud_physical_health',
+        health: 'ui.hud_health',
         energy: 'ui.hud_energy',
     };
     Object.entries(hudMap).forEach(([suffix, key]) => {
@@ -899,7 +848,7 @@ function changeLocale(locale) {
     if ($('death-screen') && !$('death-screen').classList.contains('hidden') && currentState) {
         updateDeathScreen(currentState, _lastActions);
     }
-    const q = $('search-input').value.trim();
+    const q = $('search-input')?.value.trim();
     if (q) {
         $('search-input').dispatchEvent(new Event('input'));
     } else {
@@ -1132,13 +1081,13 @@ function toggleAudio() {
 // Boot
 // =============================================================
 document.addEventListener('DOMContentLoaded', init);
-document.addEventListener('click', () => $('hud').classList.remove('open'));
 
 // Expose globals for inline onclick handlers (ES modules don't auto-expose to window)
 window.resetGame       = resetGame;
 window.dismissOnboarding = dismissOnboarding;
 window.changeLocale = changeLocale;
 window.toggleAudio     = toggleAudio;
+window.toggleStats     = toggleStats;
 window.applyAction     = applyAction;
 window.selectCategory  = selectCategory;
 window.renderCategories = renderCategories;

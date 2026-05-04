@@ -300,9 +300,9 @@ export function compute_receptivity(human, category) {
     if (human.anxiety > 55) {
       r -= (human.anxiety - 55) / 45 * 0.5;
     }
-    // Low psychological health makes drug experiences risky
-    if (human.psychological_health < 40) {
-      r -= (40 - human.psychological_health) / 40 * 0.4;
+    // Low health makes drug experiences risky
+    if (human.health < 40) {
+      r -= (40 - human.health) / 40 * 0.4;
     }
   }
 
@@ -340,12 +340,12 @@ export function apply_backfire(human, category, severity) {
     human.anxiety += severity * 25;
     human.absorption -= severity * 10;
     human.prefrontal += severity * 15;  // overthinking, rumination
-    human.psychological_health -= severity * 2;
+    human.health -= severity * 2;
 
   } else if (category === 'pain') {
     // Pain without arousal/play context → just hurts
     human.anxiety += severity * 20;
-    human.physical_health -= severity * 3;
+    human.health -= severity * 3;
     human.absorption -= severity * 10;
 
   } else if (category === 'breathwork') {
@@ -360,7 +360,7 @@ export function apply_backfire(human, category, severity) {
   } else if (category === 'drugs') {
     // Bad trip / panic on drugs
     human.anxiety += severity * 30;
-    human.psychological_health -= severity * 4;
+    human.health -= severity * 4;
     human.absorption -= severity * 15;
     // WoT: severe overwhelm can flip into dorsal shutdown (collapse after panic)
     human.shutdown += severity * 50;
@@ -459,7 +459,7 @@ export function apply_decay(human, dt) {
   if (human.life_stress > 0) {
     const stress_pct = human.life_stress / 100.0;
     human.absorption -= stress_pct * 2 * dt;        // absorption drain (-2/hr at max)
-    human.psychological_health -= stress_pct * 0.5 * dt;  // psych health drain (-0.5/hr at max)
+    human.health -= stress_pct * 0.5 * dt;  // health drain (-0.5/hr at max)
   }
 
   // Digestion effects: while digesting, sleepiness increases and arousal is suppressed
@@ -636,49 +636,55 @@ export function apply_decay(human, dt) {
 
   // === D. Consequences of extreme states ===
   if (human.dopamine > 85) {
-    human.psychological_health -= (human.dopamine - 85) * 0.04 * dt;  // reduced: comedown is via rebound_queue
+    human.health -= (human.dopamine - 85) * 0.04 * dt;  // reduced: comedown is via rebound_queue
   }
   if (human.anxiety > 70) {
-    human.psychological_health -= (human.anxiety - 70) * 0.1 * dt;
+    human.health -= (human.anxiety - 70) * 0.1 * dt;
   }
   if (human.arousal > 90) {
-    human.physical_health -= (human.arousal - 90) * 0.15 * dt;
+    human.health -= (human.arousal - 90) * 0.15 * dt;
   }
   if (human.absorption > 90) {
-    human.psychological_health -= (human.absorption - 90) * 0.1 * dt;
+    human.health -= (human.absorption - 90) * 0.1 * dt;
   }
   if (human.energy < 15) {
-    human.physical_health -= (15 - human.energy) * 0.1 * dt;
+    human.health -= (15 - human.energy) * 0.1 * dt;
   }
   if (human.endorphins > 80) {
-    human.physical_health -= (human.endorphins - 80) * 0.08 * dt;
+    human.health -= (human.endorphins - 80) * 0.08 * dt;
   }
   // === E. Passive health regeneration ===
   // Physical health recovers at a usable pace when basic needs are reasonably covered.
-  if (human.hunger < 80 && human.energy > 18 && human.sleepiness < 80) {
+  if (
+    human.hunger < 80 &&
+    human.energy > 18 &&
+    human.sleepiness < 80 &&
+    human.life_stress < 40 &&
+    human.dopamine < 65
+  ) {
     const regen =
       1.45 -
       (human.hunger / 80) * 0.28 -
       ((80 - human.energy) / 62) * 0.24 -
       (human.sleepiness / 80) * 0.18;
-    human.physical_health += Math.max(0, regen) * dt;
+    human.health += Math.max(0, regen) * dt;
   }
-  // Psychological health recovers slowly when mind is calm
+  // Mind calmness adds extra recovery on top of basic health regeneration.
   if (human.anxiety < 55 && human.shutdown < 35 && human.life_stress < 25 && human.dopamine < 75) {
     const psych_regen =
       0.45 *
       (1.0 - human.anxiety / 55 * 0.55) *
       (1.0 - human.life_stress / 25 * 0.35);
-    human.psychological_health += Math.max(0, psych_regen) * dt;
+    human.health += Math.max(0, psych_regen) * dt;
   }
 
   // Starvation: extreme hunger damages physical health
   if (human.hunger > 85) {
-    human.physical_health -= (human.hunger - 85) / 15 * 5 * dt;
+    human.health -= (human.hunger - 85) / 15 * 5 * dt;
   }
   // Sleep deprivation: extreme sleepiness damages physical health
   if (human.sleepiness > 85) {
-    human.physical_health -= (human.sleepiness - 85) / 15 * 3 * dt;
+    human.health -= (human.sleepiness - 85) / 15 * 3 * dt;
   }
 
   human.clamp_values();
@@ -773,7 +779,7 @@ export function make_events() {
     h.hunger += 10;
     h.dopamine = eb['dopamine'];
     h.serotonin += 10;
-    h.psychological_health += 2;
+    h.health += 2;
     h.arousal = 10;
     h.edging_buildup = 0;
     h.prefrontal = 60;
@@ -1006,7 +1012,7 @@ export function make_events() {
     h.prefrontal -= 5;            // cost: not scaled
     nt_boost(h, 'oxytocin', 25 * eff);
     nt_boost(h, 'serotonin', 10 * eff);
-    h.psychological_health += 1 * eff;
+    h.health += 1 * eff;
     h.arousal += 5 * eff;
     h.anxiety -= 15 * eff;
     h.absorption += 10 * eff;
@@ -1029,7 +1035,7 @@ export function make_events() {
     nt_boost(h, 'endorphins', 12 * eff);
     nt_boost(h, 'serotonin', 8 * eff);
     h.energy += 5;
-    h.physical_health += 1 * eff;
+    h.health += 1 * eff;
     h.anxiety -= 20 * eff;
     h.absorption += 15 * eff;
     h.vasopressin -= 10 * eff;
@@ -1050,7 +1056,7 @@ export function make_events() {
   function deep_breathing(h, eff = 1.0) {
     h.prefrontal -= 10;           // cost: not scaled
     nt_boost(h, 'serotonin', 8 * eff);
-    h.psychological_health += 1 * eff;
+    h.health += 1 * eff;
     h.energy += 3;
     h.anxiety -= 15 * eff;
     h.absorption += 8 * eff;
@@ -1156,7 +1162,7 @@ export function make_events() {
     // Probabilistic: overwhelming experience
     if (ENABLE_PROBABILISTIC && Math.random() < 0.05) {
       h.anxiety += 30;
-      h.physical_health -= 5;
+      h.health -= 5;
       _pendingNotifications.push({ text: 'too much, too fast', type: 'overwhelm' });
     }
   }
@@ -1250,7 +1256,7 @@ export function make_events() {
   function poppers(h, eff = 1.0) {
     h.prefrontal -= 25;           // cost: not scaled
     h.energy -= 3;                // cost: not scaled
-    h.physical_health -= 1;       // cost: not scaled
+    h.health -= 1;       // cost: not scaled
     h.arousal += 25 * eff;
     h.absorption += 20 * eff;
     h.vasopressin += 15 * eff;
@@ -1288,7 +1294,7 @@ export function make_events() {
   );
 
   function tobacco(h, eff = 1.0) {
-    h.physical_health -= 0.5;     // cost: not scaled
+    h.health -= 0.5;     // cost: not scaled
     nt_boost(h, 'dopamine', 8 * eff);
     h.arousal += 5 * eff;
     h.anxiety -= 8 * eff;
@@ -1328,7 +1334,7 @@ export function make_events() {
     h.prefrontal -= 25;           // cost: not scaled
     h.energy -= 10;               // cost: not scaled
     h.sleepiness += 15;           // cost: sedation
-    h.physical_health -= 1;       // cost: not scaled
+    h.health -= 1;       // cost: not scaled
     nt_boost(h, 'dopamine', 15 * eff);
     h.anxiety -= 25 * eff;
     h.absorption += 10 * eff;
@@ -1354,7 +1360,7 @@ export function make_events() {
 
   function amphetamines(h, eff = 1.0) {
     h.anxiety += 14;              // cost: not scaled
-    h.physical_health -= 1.25;    // cost: not scaled
+    h.health -= 1.25;    // cost: not scaled
     h.hunger -= 20;               // appetite suppression
     h.sleepiness -= 40;           // adenosine blockade
     nt_boost(h, 'dopamine', 35 * eff);
@@ -1362,7 +1368,7 @@ export function make_events() {
     h.prefrontal += 10 * eff;
     // Comedown: psych damage fires after drug wears off, not during the peak
     h.rebound_queue.push({
-      attr: 'psychological_health',
+      attr: 'health',
       amount: -4.0 * eff,
       delay_remaining: 4.5,
       duration: 8.0,
@@ -1382,7 +1388,7 @@ export function make_events() {
   function cocaine(h, eff = 1.0) {
     h.anxiety += 15;              // cost: not scaled
     h.prefrontal -= 10;           // cost: not scaled
-    h.physical_health -= 1.5;     // cost: not scaled
+    h.health -= 1.5;     // cost: not scaled
     nt_boost(h, 'dopamine', 45 * eff);
     h.arousal += 20 * eff;
     h.sleepiness -= 30;           // adenosine blockade
@@ -1407,7 +1413,7 @@ export function make_events() {
   function nitrous(h, eff = 1.0) {
     h.prefrontal -= 20;           // cost: not scaled
     h.energy -= 2;                // cost: not scaled
-    h.physical_health -= 1;       // cost: oxygen deprivation
+    h.health -= 1;       // cost: oxygen deprivation
     nt_boost(h, 'endorphins', 20 * eff);
     h.absorption += 25 * eff;
   }
@@ -1495,7 +1501,7 @@ export function make_events() {
 
   function therapy_session(h, eff = 1.0) {
     h.life_stress -= 8;
-    h.psychological_health += 3;
+    h.health += 3;
     h.anxiety -= 10;
     h.prefrontal += 10;
     h.life_stress = Math.max(0.0, Math.min(100.0, h.life_stress));
@@ -1517,7 +1523,7 @@ export function make_events() {
     h.energy -= 20;               // cost: not scaled — takes effort
     h.hunger += 20;               // cost: burns calories
     h.sleepiness += 10;           // cost: tires you out
-    h.physical_health += 12 * eff;
+    h.health += 12 * eff;
     nt_boost(h, 'endorphins', 20 * eff);
     nt_boost(h, 'dopamine', 10 * eff);
     nt_boost(h, 'serotonin', 8 * eff);
@@ -1525,7 +1531,7 @@ export function make_events() {
     h.anxiety -= 15 * eff;
     h.arousal += 8 * eff;
     h.time_since_exercise = 0;
-    _pendingNotifications.push({ text: 'endorphin rush — physical health improving', type: 'life-good' });
+    _pendingNotifications.push({ text: 'endorphin rush — health improving', type: 'life-good' });
   }
 
   events['exercise'] = new Event(
@@ -1545,7 +1551,7 @@ export function make_events() {
   function job_loss(h, eff = 1.0) {
     h.life_stress += 25;
     h.anxiety += 20;
-    h.psychological_health -= 5;
+    h.health -= 5;
     h.energy -= 10;
     h.life_stress = Math.max(0.0, Math.min(100.0, h.life_stress));
     _pendingNotifications.push({ text: 'stress+25 — serotonin & dopamine baselines drop, libido suppressed', type: 'life-bad' });
@@ -1564,7 +1570,7 @@ export function make_events() {
   function financial_crisis(h, eff = 1.0) {
     h.life_stress += 30;
     h.anxiety += 25;
-    h.psychological_health -= 8;
+    h.health -= 8;
     h.life_stress = Math.max(0.0, Math.min(100.0, h.life_stress));
     _pendingNotifications.push({ text: 'stress+30 — chronic anxiety builds, hedonic capacity blunted', type: 'life-bad' });
   }
@@ -1583,7 +1589,7 @@ export function make_events() {
     h.life_stress += 20;
     h.anxiety += 15;
     h.oxytocin -= 15;
-    h.psychological_health -= 10;
+    h.health -= 10;
     h.life_stress = Math.max(0.0, Math.min(100.0, h.life_stress));
     _pendingNotifications.push({ text: 'oxytocin crashes — bonding circuits deprived, low mood incoming', type: 'life-bad' });
   }
@@ -1601,7 +1607,7 @@ export function make_events() {
     h.life_stress -= 20;
     h.anxiety -= 10;
     nt_boost(h, 'dopamine', 10 * eff);
-    h.psychological_health += 3;
+    h.health += 3;
     h.life_stress = Math.max(0.0, Math.min(100.0, h.life_stress));
     _pendingNotifications.push({ text: 'stress−20 — dopamine & serotonin baselines recovering', type: 'life-good' });
   }
@@ -1619,7 +1625,7 @@ export function make_events() {
   function resolve_finances(h, eff = 1.0) {
     h.life_stress -= 15;
     h.anxiety -= 8;
-    h.psychological_health += 2;
+    h.health += 2;
     h.life_stress = Math.max(0.0, Math.min(100.0, h.life_stress));
     _pendingNotifications.push({ text: 'stress−15 — chronic anxiety easing, energy floor rising', type: 'life-good' });
   }
@@ -1639,7 +1645,7 @@ export function make_events() {
     nt_boost(h, 'oxytocin', 20 * eff);
     nt_boost(h, 'dopamine', 15 * eff);
     h.anxiety -= 5;
-    h.psychological_health += 5;
+    h.health += 5;
     h.life_stress = Math.max(0.0, Math.min(100.0, h.life_stress));
     _pendingNotifications.push({ text: 'oxytocin & dopamine surge — bonding circuits activated', type: 'life-good' });
   }

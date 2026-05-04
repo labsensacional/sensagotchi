@@ -18,7 +18,7 @@ export class Human {
     'dopamine', 'oxytocin', 'endorphins', 'serotonin',
     'prolactin', 'vasopressin', 'arousal', 'prefrontal',
     'sleepiness', 'anxiety', 'absorption', 'hunger',
-    'energy', 'physical_health', 'psychological_health',
+    'energy', 'health',
     'time_since_orgasm', 'edging_buildup', 'digesting',
     'sexual_inhibition', 'shutdown',
     'testosterone',  // also a float but in _UNCLAMPED_FIELDS check will skip via the set
@@ -30,7 +30,7 @@ export class Human {
     'dopamine', 'oxytocin', 'endorphins', 'serotonin',
     'prolactin', 'vasopressin', 'arousal', 'prefrontal',
     'sleepiness', 'anxiety', 'absorption', 'hunger',
-    'energy', 'physical_health', 'psychological_health',
+    'energy', 'health',
     'edging_buildup', 'digesting',
     'sexual_inhibition', 'shutdown',
     'testosterone',
@@ -54,6 +54,7 @@ export class Human {
     absorption = 30.0,
     hunger = 20.0,
     energy = 80.0,
+    health = null,
     physical_health = 80.0,
     psychological_health = 70.0,
     time_since_orgasm = 0.0,
@@ -92,8 +93,8 @@ export class Human {
     this.energy = energy;               // 0 = exhausted, 100 = fully rested
 
     // Health (slower changing)
-    this.physical_health = physical_health;
-    this.psychological_health = psychological_health;
+    const resolvedHealth = health ?? ((physical_health + psychological_health) / 2);
+    this.health = resolvedHealth;
 
     // Internal state tracking
     this.time_since_orgasm = time_since_orgasm;
@@ -148,6 +149,22 @@ export class Human {
     for (const k of Object.keys(this.cue_salience)) {
       this.cue_salience[k] = Math.max(0.0, Math.min(1.0, this.cue_salience[k]));
     }
+  }
+
+  get physical_health() {
+    return this.health;
+  }
+
+  set physical_health(value) {
+    this.health = value;
+  }
+
+  get psychological_health() {
+    return this.health;
+  }
+
+  set psychological_health(value) {
+    this.health = value;
   }
 
   yerkes_dodson_optimum() {
@@ -258,8 +275,7 @@ export class Human {
     return (
       this.energy > 5 &&
       this.hunger < 95 &&
-      this.physical_health > 10 &&
-      this.psychological_health > 10 &&
+      this.health > 10 &&
       this.sleepiness < 95  // too sleepy = falls asleep
     );
   }
@@ -318,7 +334,7 @@ export const HUMAN_PRESETS = {
     overrides: {
       anxiety: 42.0,
       energy: 68.0,
-      psychological_health: 62.0,
+      health: 62.0,
     },
   },
   breakup: {
@@ -329,7 +345,7 @@ export const HUMAN_PRESETS = {
       oxytocin: 16.0,
       anxiety: 44.0,
       energy: 66.0,
-      psychological_health: 56.0,
+      health: 56.0,
     },
   },
   antidepressants: {
@@ -363,7 +379,7 @@ export const HUMAN_PRESETS = {
       energy: 64.0,
       hunger: 34.0,
       sleepiness: 28.0,
-      psychological_health: 64.0,
+      health: 64.0,
       serotonin: 46.0,
     },
   },
