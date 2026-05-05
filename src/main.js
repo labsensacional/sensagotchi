@@ -2,18 +2,16 @@
    TAMAGOTCHI HEDONISTA — main.js
    ============================================================= */
 
-import { Human, create_human_from_preset, get_human_presets } from './internal-logic/human.js';
-import { make_events, apply_event, apply_decay, drainNotifications } from './internal-logic/events.js';
+import { createPhysiologyEngine, get_human_presets } from './internal-logic/engine.js';
+import * as expressiveEngine from './expressive-engine.js';
+import { monsterRenderer } from './monster-renderer-p5.js';
 import { actionLabel, eventDisplay, getInitialLocale, getLocale, setLocale, t, translateNotification } from './i18n.js';
-
-const expressiveEngine = window.ExpressiveEngine;
 
 // ── State ──────────────────────────────────────────────────────
 let currentState   = null;
-let _human         = null;
-let _events        = null;
+let _engine        = null;
 let _lastActions   = [];
-let allEvents      = {};        // { category: [{ name, description, duration, can_apply }] }
+let allEvents      = {};
 let currentCategory = null;    // null = show category grid
 let _pinnedActions = [];        // action ids pinned via URL ?pinned= param
 let audioStarted   = false;
@@ -99,7 +97,7 @@ function getActionDescription(action) {
 
 function updateAvatar(s) {
     // Update p5.js monster visual state
-    if (window.updateMonsterFromApp) window.updateMonsterFromApp(s);
+    monsterRenderer.setState(s);
 
     // Swap CSS animation class on the container (body motion)
     const motion    = expressiveEngine.getMotionProfile(s);
@@ -210,53 +208,24 @@ function updateHUDDetail(s) {
         </div>`).join('');
 }
 
-function human_to_dict(h) {
-    const safe = (value) => Number.isFinite(value) ? Math.round(value * 10) / 10 : 0;
-    return {
-        dopamine:             safe(h.dopamine),
-        oxytocin:             safe(h.oxytocin),
-        endorphins:           safe(h.endorphins),
-        serotonin:            safe(h.serotonin),
-        prolactin:            safe(h.prolactin),
-        vasopressin:          safe(h.vasopressin),
-        arousal:              safe(h.arousal),
-        prefrontal:           safe(h.prefrontal),
-        sleepiness:           safe(h.sleepiness),
-        anxiety:              safe(h.anxiety),
-        absorption:           safe(h.absorption),
-        hunger:               safe(h.hunger),
-        energy:               safe(h.energy),
-        health:               safe(h.health),
-        physical_health:      safe(h.physical_health),
-        psychological_health: safe(h.psychological_health),
-        sexual_inhibition:    safe(h.sexual_inhibition),
-        shutdown:             safe(h.shutdown),
-        life_stress:          safe(h.life_stress),
-        ssri_level:           safe(h.ssri_level),
-        testosterone:         safe(h.testosterone),
-        liking_score:         safe(h.liking_score()),
-        wanting_score:        safe(h.wanting_score()),
-        is_viable:            h.is_viable(),
-    };
-}
-
 function events_by_category() {
     const cats = {};
-    for (const [name, event] of Object.entries(_events)) {
-        const cat = event.category;
+    for (const action of _engine.listActions()) {
+        const cat = action.category;
         if (!cats[cat]) cats[cat] = [];
-        const reason = event.blocked_reason;
-        const noteFn = event.note;
-        const rawBlocked = typeof reason === 'function' ? reason(_human) : (reason || '');
-        const rawNote = typeof noteFn === 'function' ? noteFn(_human) : null;
-        const display = eventDisplay(name, _human, rawBlocked, rawNote);
+        const display = eventDisplay(
+            action.id,
+            _engine.getState(),
+            action.blockedReason,
+            action.note,
+        );
         cats[cat].push({
-            name,
+            name: action.id,
             display_name:   display.name,
-            description:    display.description || event.description,
-            duration:       event.duration,
+            description:    display.description || action.description,
+            duration:       action.duration,
             category:       cat,
-            can_apply:      event.can_apply(_human),
+            can_apply:      action.canApply,
             blocked_reason: display.blocked,
             note:           display.note,
         });
@@ -700,23 +669,21 @@ if (searchInput !== null) {
 function applyAction(name) {
     if (!audioStarted && !audioMuted) startAudio();
 
-    const event = _events[name];
-    if (!event || !event.can_apply(_human)) return;
+    const result = _engine.applyAction(name);
+    if (!result.ok) return;
 
-    const before = human_to_dict(_human);
-    apply_event(_human, name, event);
-    const afterEvent = human_to_dict(_human);  // pre-decay snapshot for clean diff
-    apply_decay(_human, event.time_advance ?? event.duration);
-    _human.clamp_values();
-
-    const notifications = drainNotifications();
+    const action = result.action;
+    const before = result.before;
+    const afterEvent = result.afterEvent;
+    const finalState = result.after;
+    const notifications = result.notifications;
     if (notifications.length > 0) {
         const primary = notifications[notifications.length - 1];
-        const reminder = getContextReminder(human_to_dict(_human));
+        const reminder = getContextReminder(finalState);
         const text = reminder ? `${primary.text} · ${reminder}` : primary.text;
         showEventNotification(text, primary.type);
     } else {
-        const msg = buildNarrativeFeedback(event, before, afterEvent, human_to_dict(_human));
+        const msg = buildNarrativeFeedback(action, before, afterEvent, finalState);
         if (msg) showEventNotification(msg, 'action');
     }
 
@@ -724,7 +691,6 @@ function applyAction(name) {
     if (_lastActions.length > 20) _lastActions = _lastActions.slice(-20);
 
     allEvents = events_by_category();
-    const finalState = human_to_dict(_human);
     applyStateToUI(finalState, _lastActions.slice(-3));
     updateBackground(name);
     playSFX(name);
@@ -749,11 +715,11 @@ function resetGame() {
     if (_notifTimer) { clearTimeout(_notifTimer); _notifTimer = null; }
     const notifEl = $('event-notification');
     if (notifEl) notifEl.innerHTML = '';
-    _human = createHumanForCurrentPreset();
+    _engine.reset({ presetId: currentPresetId });
     _lastActions = [];
     allEvents = events_by_category();
     currentCategory = DEFAULT_CATEGORY;
-    applyStateToUI(human_to_dict(_human), []);
+    applyStateToUI(_engine.getState(), []);
     $('bg').style.backgroundImage = "url('backgrounds/default.jpg')";
     renderCategories();
 }
@@ -774,7 +740,7 @@ function renderPinnedSection() {
 }
 
 function createHumanForCurrentPreset() {
-    return create_human_from_preset(currentPresetId);
+    return _engine.reset({ presetId: currentPresetId });
 }
 
 function renderPresetOptions() {
@@ -790,9 +756,9 @@ function renderPresetOptions() {
 function selectPreset(presetId) {
     if (!HUMAN_PRESET_IDS.includes(presetId)) return;
     currentPresetId = presetId;
-    _human = createHumanForCurrentPreset();
+    createHumanForCurrentPreset();
     allEvents = events_by_category();
-    applyStateToUI(human_to_dict(_human), _lastActions.slice(-3));
+    applyStateToUI(_engine.getState(), _lastActions.slice(-3));
     renderCategoryBar();
     ensureCurrentCategory();
     renderActionList(allEvents[currentCategory] || [], false);
@@ -867,12 +833,11 @@ function init() {
         _pinnedActions = pinnedParam.split(',').map(s => s.trim()).filter(Boolean);
     }
 
-    _human = createHumanForCurrentPreset();
-    _events = make_events();
+    _engine = createPhysiologyEngine({ presetId: currentPresetId });
     _lastActions = [];
     allEvents = events_by_category();
     currentCategory = DEFAULT_CATEGORY;
-    applyStateToUI(human_to_dict(_human), []);
+    applyStateToUI(_engine.getState(), []);
     $('lang-select').value = getLocale();
     updateStaticTranslations();
     renderCategories();

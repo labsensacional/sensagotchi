@@ -5,10 +5,29 @@
 
 'use strict';
 
-const expressiveEngine = window.ExpressiveEngine;
-if (!expressiveEngine) {
-  throw new Error('monster.js requires expressive-engine.js to be loaded first');
-}
+import * as expressiveEngine from './expressive-engine.js';
+
+const p5Runtime = typeof window !== 'undefined' ? window : globalThis;
+const beginShape = (...args) => p5Runtime.beginShape(...args);
+const bezierVertex = (...args) => p5Runtime.bezierVertex(...args);
+const clear = (...args) => p5Runtime.clear(...args);
+const createCanvas = (...args) => p5Runtime.createCanvas(...args);
+const ellipse = (...args) => p5Runtime.ellipse(...args);
+const endShape = (...args) => p5Runtime.endShape(...args);
+const fill = (...args) => p5Runtime.fill(...args);
+const line = (...args) => p5Runtime.line(...args);
+const loop = (...args) => p5Runtime.loop(...args);
+const noFill = (...args) => p5Runtime.noFill(...args);
+const noLoop = (...args) => p5Runtime.noLoop(...args);
+const noStroke = (...args) => p5Runtime.noStroke(...args);
+const pixelDensity = (...args) => p5Runtime.pixelDensity(...args);
+const redraw = (...args) => p5Runtime.redraw(...args);
+const removeSketch = (...args) => p5Runtime.remove(...args);
+const stroke = (...args) => p5Runtime.stroke(...args);
+const strokeCap = (...args) => p5Runtime.strokeCap(...args);
+const strokeJoin = (...args) => p5Runtime.strokeJoin(...args);
+const strokeWeight = (...args) => p5Runtime.strokeWeight(...args);
+const vertex = (...args) => p5Runtime.vertex(...args);
 
 // ── Palette ──────────────────────────────────────────────────────────────────
 const TEAL       = [72, 185, 185];
@@ -32,6 +51,8 @@ let fromParams    = null;
 let targetParams  = null;
 let monsterState  = null;
 let animT         = 1.0;
+let rendererReady = false;
+let frameRequestId = null;
 const ANIM_FRAMES = 28;
 
 // ── Seeded deterministic RNG ──────────────────────────────────────────────────
@@ -100,7 +121,7 @@ function drawRoundedBody(cx, cy, hw, hh, r, col) {
   bezierVertex(cx + hw - r + k, cy + hh,   cx + hw, cy + hh - r + k,   cx + hw, cy + hh - r);
   vertex(cx + hw, cy - hh + r);
   bezierVertex(cx + hw, cy - hh + r - k,   cx + hw - r + k, cy - hh,   cx + hw - r, cy - hh);
-  endShape(CLOSE);
+  endShape(p5Runtime.CLOSE);
 }
 
 function drawBlob(cx, cy, rx, ry, col, seed = 7) {
@@ -109,7 +130,7 @@ function drawBlob(cx, cy, rx, ry, col, seed = 7) {
   const pts = makeBlob(cx, cy, rx, ry, seed);
   beginShape();
   for (const [x, y] of pts) vertex(x, y);
-  endShape(CLOSE);
+  endShape(p5Runtime.CLOSE);
 }
 
 // ── Eye with drooping lid ─────────────────────────────────────────────────────
@@ -166,7 +187,7 @@ function drawEye(cx, cy, size, openness, pupilScale, lidDrop, crinkle = 0, isLef
   fill(...WHITE); noStroke();
   beginShape();
   for (const [x, y] of pts) vertex(x, y);
-  endShape(CLOSE);
+  endShape(p5Runtime.CLOSE);
 
   // Pupil — constrained fully inside the visible eye area
   const lid_y  = cy - ry + 2 * ry * Math.min(0.95, lidDrop);
@@ -242,7 +263,7 @@ function drawMouth(cx, cy, curve, width, openH, teeth, openUp = false, openRound
       bezierVertex(cx-W+10, cy-7,      cx+W-10, cy-7,      cx+W, cy);
       bezierVertex(cx+W+6,  cy+H*0.72, cx+W*0.22, cy+H,   cx,    cy+H);
       bezierVertex(cx-W*0.22, cy+H,    cx-W-6, cy+H*0.72,  cx-W, cy);
-      endShape(CLOSE);
+      endShape(p5Runtime.CLOSE);
 
       fill(...GUM_RED);
       beginShape();
@@ -250,7 +271,7 @@ function drawMouth(cx, cy, curve, width, openH, teeth, openUp = false, openRound
       bezierVertex(cx-W+ins+8, cy-3,         cx+W-ins-8, cy-3,         cx+W-ins,  cy+3);
       bezierVertex(cx+W-ins+4, cy+H*0.72-2,  cx+W*0.22-2, cy+H-ins,   cx,        cy+H-ins);
       bezierVertex(cx-W*0.22+2, cy+H-ins,    cx-W+ins-4, cy+H*0.72-2, cx-W+ins,  cy+3);
-      endShape(CLOSE);
+      endShape(p5Runtime.CLOSE);
 
       if (teeth) {
         // 4 triangular monster fangs — outer pair angled inward, inner pair nearly vertical
@@ -267,7 +288,7 @@ function drawMouth(cx, cy, curve, width, openH, teeth, openUp = false, openRound
             vertex(tx - tw / 2 + 1, bY);
             vertex(tx + tw / 2 - 1, bY);
             vertex(tx + tiltX, bY + tipLen);
-            endShape(CLOSE);
+            endShape(p5Runtime.CLOSE);
           }
         }
       }
@@ -290,7 +311,7 @@ function drawMouth(cx, cy, curve, width, openH, teeth, openUp = false, openRound
             vertex(tx - tw / 2 + 1, bY);
             vertex(tx + tw / 2 - 1, bY);
             vertex(tx + tiltX, bY - tipLen);   // tips point upward into the cavity
-            endShape(CLOSE);
+            endShape(p5Runtime.CLOSE);
           }
         }
       }
@@ -303,7 +324,7 @@ function drawMouth(cx, cy, curve, width, openH, teeth, openUp = false, openRound
       bezierVertex(cx-W+10, cy+7,       cx+W-10, cy+7,      cx+W, cy);
       bezierVertex(cx+W+6,  cy-H*0.72,  cx+W*0.22, cy-H,   cx,    cy-H);
       bezierVertex(cx-W*0.22, cy-H,     cx-W-6, cy-H*0.72,  cx-W, cy);
-      endShape(CLOSE);
+      endShape(p5Runtime.CLOSE);
 
       fill(...GUM_RED);
       beginShape();
@@ -311,7 +332,7 @@ function drawMouth(cx, cy, curve, width, openH, teeth, openUp = false, openRound
       bezierVertex(cx-W+ins+8, cy+3,         cx+W-ins-8, cy+3,         cx+W-ins,  cy-3);
       bezierVertex(cx+W-ins+4, cy-H*0.72+2,  cx+W*0.22-2, cy-H+ins,   cx,        cy-H+ins);
       bezierVertex(cx-W*0.22+2, cy-H+ins,    cx-W+ins-4, cy-H*0.72+2, cx-W+ins,  cy-3);
-      endShape(CLOSE);
+      endShape(p5Runtime.CLOSE);
 
       if (teeth) {
         // 4 triangular monster fangs — outer pair angled inward, inner pair nearly vertical
@@ -328,7 +349,7 @@ function drawMouth(cx, cy, curve, width, openH, teeth, openUp = false, openRound
             vertex(tx - tw / 2 + 1, bY);
             vertex(tx + tw / 2 - 1, bY);
             vertex(tx + tiltX, bY - tipLen);
-            endShape(CLOSE);
+            endShape(p5Runtime.CLOSE);
           }
         }
       }
@@ -356,13 +377,13 @@ function drawMouth(cx, cy, curve, width, openH, teeth, openUp = false, openRound
         vertex(tx - tw / 2 + 1, lipY + 2);
         vertex(tx + tw / 2 - 1, lipY + 2);
         vertex(tx + tiltX,      lipY + 2 - toothH);
-        endShape(CLOSE);
+        endShape(p5Runtime.CLOSE);
         // Lower teeth: base at lip, tip pokes downward through lower lip
         beginShape();
         vertex(tx - tw / 2 + 1, lipY - 2);
         vertex(tx + tw / 2 - 1, lipY - 2);
         vertex(tx + tiltX,      lipY - 2 + toothH);
-        endShape(CLOSE);
+        endShape(p5Runtime.CLOSE);
       }
     }
 
@@ -373,7 +394,7 @@ function drawMouth(cx, cy, curve, width, openH, teeth, openUp = false, openRound
 
 // ── Limbs (tapered: thin at origin, thick at tip) ────────────────────────────
 function drawTaperedLimb(ctrl, wStart, wEnd, steps = 22) {
-  noFill(); strokeCap(ROUND); strokeJoin(ROUND);
+  noFill(); strokeCap(p5Runtime.ROUND); strokeJoin(p5Runtime.ROUND);
   for (let i = 0; i < steps; i++) {
     const t0 = i / steps, t1 = (i + 1) / steps;
     const [x0, y0] = evalBezier(t0, ctrl);
@@ -414,7 +435,7 @@ function drawHorns(cx, cy, headRx, headRy, col) {
     vertex(boX, boY);
     bezierVertex(oc1x, oc1y, oc2x, oc2y, tipX, tipY);
     bezierVertex(ic1x, ic1y, biX + s * 5, biY, biX, biY);
-    endShape(CLOSE);
+    endShape(p5Runtime.CLOSE);
 
     // Inner-face shadow strip (depth / curvature illusion)
     fill(...dark); noStroke();
@@ -423,7 +444,7 @@ function drawHorns(cx, cy, headRx, headRy, col) {
     bezierVertex(ic1x, ic1y, biX + s * 8, biY - 4, biX + s * 16, biY - 20);
     bezierVertex(cx + s * headRx * 0.72, cy - headRy * 1.04,
                  cx + s * headRx * 0.95, cy - headRy * 0.90, tipX, tipY);
-    endShape(CLOSE);
+    endShape(p5Runtime.CLOSE);
   }
 }
 
@@ -475,7 +496,7 @@ function drawDrool(cx, mY, mouthW, curve, intensity) {
   bezierVertex(tx + streamW * 0.3, sy + streamH * 0.85,
                tx + streamW / 2, sy + streamH * 0.5,
                tx + streamW / 2, sy);
-  endShape(CLOSE);
+  endShape(p5Runtime.CLOSE);
 
   // Teardrop bead at the tip (only when intensity is strong enough to form a drop)
   if (intensity > 0.45) {
@@ -490,7 +511,7 @@ function drawDrool(cx, mY, mouthW, curve, intensity) {
     bezierVertex(tx - dr, dy - dr * 0.3,
                  tx - dr * 0.55, dy - dr * 1.2,
                  tx, sy + streamH - dr * 0.4);
-    endShape(CLOSE);
+    endShape(p5Runtime.CLOSE);
   }
 }
 
@@ -535,7 +556,7 @@ function drawSpikes(cx, cy, rx, ry, n, h) {
       bx - hw * cpa + dx * 0.5, by - hw * spa + dy * 0.5,
       bx - hw * cpa, by - hw * spa
     );
-    endShape(CLOSE);
+    endShape(p5Runtime.CLOSE);
   }
 }
 
@@ -549,7 +570,7 @@ function drawSweat(cx, cy, rx) {
     bezierVertex(sx + r*0.55, sy - r*1.5,  sx + r, sy - r*0.3,  sx + r, sy + r*0.2);
     bezierVertex(sx + r,      sy + r,       sx - r, sy + r,       sx - r, sy + r*0.2);
     bezierVertex(sx - r,      sy - r*0.3,   sx - r*0.55, sy - r*1.5,  sx, sy - r*2.4);
-    endShape(CLOSE);
+    endShape(p5Runtime.CLOSE);
   }
 }
 
@@ -575,7 +596,7 @@ function drawTongue(cx, cy, mouthW, openH, side = 0) {
     tx + tongW / 2 + 4, baseY + tongH * 0.40,
     tx + tongW / 2,     baseY
   );
-  endShape(CLOSE);
+  endShape(p5Runtime.CLOSE);
 
   // Center groove
   stroke(185, 50, 65); strokeWeight(1.5); noFill();
@@ -674,7 +695,7 @@ function drawVeins(cx, cy, headRx, headRy, bodyCy, bodyRy, intensity) {
 
 // ── Main renderer ─────────────────────────────────────────────────────────────
 function renderMonster(e) {
-  strokeCap(ROUND); strokeJoin(ROUND);
+  strokeCap(p5Runtime.ROUND); strokeJoin(p5Runtime.ROUND);
 
   const bp=e.body||{}, ep=e.eyes||{}, brp=e.brows||{}, mp=e.mouth||{}, fx=e.fx||{};
   const pose   = bp.pose || 'neutral';
@@ -960,6 +981,11 @@ const STATE_PRESETS = {
   },
 };
 
+window.MonsterRendererDefaults = {
+  DEFAULT_STATE,
+  STATE_PRESETS,
+};
+
 // ── Slider groups for the UI ──────────────────────────────────────────────────
 const SLIDER_GROUPS = [
   { label: 'Neurotransmitters', keys: ['dopamine','oxytocin','endorphins','serotonin','prolactin','vasopressin'] },
@@ -968,6 +994,16 @@ const SLIDER_GROUPS = [
   { label: 'Health',            keys: ['health'] },
   { label: 'Context',           keys: ['life_stress','ssri_level'] },
   { label: 'Special',           keys: ['shutdown'] },
+];
+
+window.STATE_PRESETS = STATE_PRESETS;
+window.SLIDER_GROUPS = SLIDER_GROUPS;
+
+const RENDERER_STATE_KEYS = [
+  'dopamine','oxytocin','endorphins','serotonin','prolactin',
+  'vasopressin','arousal','prefrontal','sleepiness','anxiety',
+  'absorption','hunger','energy','shutdown','anandamide',
+  'health','physical_health','psychological_health','life_stress','ssri_level'
 ];
 
 // ── Parameter interpolation ───────────────────────────────────────────────────
@@ -993,10 +1029,11 @@ function setup() {
   const canvas = createCanvas(SIZE, SIZE);
   canvas.parent('avatar-canvas-wrap');
 
-  monsterState  = deepCopy(DEFAULT_STATE);
-  targetParams  = expressiveEngine.stateToExpressionParams(monsterState);
-  currentParams = deepCopy(targetParams);
-  fromParams    = deepCopy(targetParams);
+  monsterState = monsterState ? deepCopy(monsterState) : deepCopy(DEFAULT_STATE);
+  targetParams = targetParams || expressiveEngine.stateToExpressionParams(monsterState);
+  currentParams = currentParams || deepCopy(targetParams);
+  fromParams = fromParams || deepCopy(targetParams);
+  rendererReady = true;
 
   noLoop();
   redraw();
@@ -1007,29 +1044,103 @@ function draw() {
   if (animT < 1.0) {
     animT = Math.min(1.0, animT + 1/ANIM_FRAMES);
     currentParams = lerpParams(fromParams, targetParams, easeInOut(animT));
-    if (animT >= 1.0) noLoop();
+    if (animT < 1.0) {
+      scheduleRedraw();
+    } else {
+      frameRequestId = null;
+    }
   }
   renderMonster(currentParams);
 }
 
+function scheduleRedraw() {
+  if (!rendererReady || frameRequestId !== null) return;
+  frameRequestId = window.requestAnimationFrame(() => {
+    frameRequestId = null;
+    redraw();
+  });
+}
+
 // Animate to new params
 function animateTo(newParams) {
+  if (!newParams) return;
+  if (!currentParams) {
+    currentParams = deepCopy(newParams);
+  }
   fromParams   = deepCopy(currentParams);
   targetParams = newParams;
   animT = 0;
-  loop();
+  if (!rendererReady) return;
+  scheduleRedraw();
 }
 
-// ── App state → monster state mapping ────────────────────────────────────────
-// The API already returns full neurotransmitter fields — pass them through directly.
-window.updateMonsterFromApp = function(appState) {
-  if (!monsterState) return;
-  const keys = ['dopamine','oxytocin','endorphins','serotonin','prolactin',
-                'vasopressin','arousal','prefrontal','sleepiness','anxiety',
-                'absorption','hunger','energy','shutdown','anandamide',
-                'physical_health','psychological_health','life_stress','ssri_level'];
-  for (const k of keys) {
-    if (appState[k] !== undefined) monsterState[k] = appState[k];
+function applyAppStateToMonsterState(appState) {
+  if (!monsterState || !appState) return;
+  for (const key of RENDERER_STATE_KEYS) {
+    if (appState[key] !== undefined) {
+      monsterState[key] = appState[key];
+    }
   }
+}
+
+function setRendererState(appState) {
+  if (!monsterState) {
+    monsterState = deepCopy(DEFAULT_STATE);
+  }
+  applyAppStateToMonsterState(appState);
   animateTo(expressiveEngine.stateToExpressionParams(monsterState));
+}
+
+function setRendererExpression(expressionParams) {
+  if (!expressionParams) return;
+  animateTo(expressionParams);
+}
+
+function createMonsterRendererP5() {
+  return {
+    getState() {
+      return deepCopy(monsterState);
+    },
+    setState(appState) {
+      setRendererState(appState);
+    },
+    setExpression(expressionParams) {
+      setRendererExpression(expressionParams);
+    },
+    destroy() {
+      if (frameRequestId !== null) {
+        window.cancelAnimationFrame(frameRequestId);
+        frameRequestId = null;
+      }
+      if (typeof p5Runtime.remove === 'function') {
+        removeSketch();
+      }
+      rendererReady = false;
+      monsterState = null;
+      currentParams = null;
+      fromParams = null;
+      targetParams = null;
+    },
+  };
+}
+
+const monsterRenderer = createMonsterRendererP5();
+if (typeof window !== 'undefined') {
+  window.setup = setup;
+  window.draw = draw;
+}
+window.createMonsterRendererP5 = createMonsterRendererP5;
+window.monsterRenderer = monsterRenderer;
+
+// Legacy compatibility for the web app while the renderer API is being adopted.
+window.updateMonsterFromApp = function updateMonsterFromApp(appState) {
+  monsterRenderer.setState(appState);
+};
+
+export {
+  DEFAULT_STATE,
+  SLIDER_GROUPS,
+  STATE_PRESETS,
+  createMonsterRendererP5,
+  monsterRenderer,
 };

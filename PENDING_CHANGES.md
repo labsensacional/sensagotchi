@@ -5,7 +5,7 @@
 Simulador de fisiología/afecto (`sensagotchi`). Archivos clave:
 - `src/internal-logic/human.js` — clase Human, scores (liking/wanting)
 - `src/internal-logic/events.js` — todas las acciones, decay, BASELINES
-- `src/monster.js` — renderer p5.js del avatar
+- `src/monster-renderer-p5.js` — renderer p5.js del avatar
 - `src/main.js` — UI principal
 
 Tests en `src/internal-logic/` con `npm test` (vitest, 75 tests, todos deben pasar).

@@ -27,6 +27,95 @@ Instead of asking “is this action good or bad?”, the simulator asks:
 The simulator does not decide what to do.
 The user does.
 
+## Hello world
+
+### 1. Run the website locally
+
+No build step, no server required — just serve `src/` as static files:
+
+```bash
+cd src
+python -m http.server 5000
+```
+
+Open `http://localhost:5000`. Also accessible from a phone on the same network at `http://<your-local-ip>:5000`.
+
+### 2. Try the physiology engine by itself
+
+You can run the logical motor without the web UI:
+
+```bash
+node --input-type=module <<'NODE'
+import { createPhysiologyEngine } from './src/internal-logic/engine.js';
+
+const engine = createPhysiologyEngine({ presetId: 'default' });
+
+console.log('initial', engine.getState());
+console.log('available food actions', engine.listActions().filter(a => a.category === 'food'));
+
+const result = engine.applyAction('snack');
+console.log('after snack', result.after);
+NODE
+```
+
+That API is the reusable entrypoint for the physiological simulation:
+
+- `createPhysiologyEngine({ presetId })`
+- `engine.getState()`
+- `engine.listActions()`
+- `engine.applyAction(actionId)`
+- `engine.step(hours)`
+- `engine.reset({ presetId })`
+
+### 3. Try the expressive engine by itself
+
+You can also use the expressive layer separately from the game loop:
+
+```html
+<script type="module">
+  import * as expressiveEngine from './src/expressive-engine.js';
+
+  const state = {
+    anxiety: 82,
+    energy: 28,
+    sleepiness: 18,
+    arousal: 55,
+    dopamine: 48,
+    oxytocin: 18,
+    endorphins: 12,
+    serotonin: 32,
+    prolactin: 10,
+    vasopressin: 46,
+    absorption: 34,
+    hunger: 24,
+    shutdown: 0,
+    health: 58,
+    life_stress: 35,
+    ssri_level: 0,
+  };
+
+  console.log(expressiveEngine.getMotionProfile(state));
+  console.log(expressiveEngine.getOverlayCues(state));
+  console.log(expressiveEngine.stateToExpressionParams(state));
+</script>
+```
+
+If you want the full p5 avatar renderer too, load:
+
+```html
+<script type="module">
+  import { monsterRenderer } from './src/monster-renderer-p5.js';
+
+  monsterRenderer.setState({
+    anxiety: 40,
+    energy: 72,
+    health: 80,
+  });
+</script>
+```
+
+If you prefer the browser global for quick experimentation, the module still exposes `window.monsterRenderer` for compatibility.
+
 ## Running the website
 
 No build step, no server required — just serve `src/` as static files:

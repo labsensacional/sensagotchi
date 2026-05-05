@@ -491,12 +491,18 @@
 
   <div id="panel"></div>
 
-  <script src="expressive-engine.js"></script>
-  <script src="monster.js"></script>
-  <script>
-    let state = { ...window.ExpressiveEngine.DEFAULT_EXPRESSIVE_STATE };
+  <script type="module">
+    import * as expressiveEngine from './expressive-engine.js';
+    import {
+      DEFAULT_STATE,
+      SLIDER_GROUPS,
+      STATE_PRESETS,
+      monsterRenderer,
+    } from './monster-renderer-p5.js';
+
+    let state = { ...expressiveEngine.DEFAULT_EXPRESSIVE_STATE };
     const sliderEls = {};
-    const engine = window.ExpressiveEngine;
+    const engine = expressiveEngine;
 
     function updateThoughtCloud(id, show, critical, emojis) {
       const el = document.getElementById(id);
@@ -603,7 +609,7 @@
 
     function syncState() {
       applyMotionProfile();
-      updateMonsterFromApp(state);
+      monsterRenderer.setState(state);
       renderInspector();
     }
 

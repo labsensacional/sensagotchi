@@ -1,11 +1,12 @@
-const CACHE = 'sensagotchi-v1';
+const CACHE = 'sensagotchi-v2';
 
 const PRECACHE = [
   '/',
   '/index.html',
   '/style.css',
   '/main.js',
-  '/monster.js',
+  '/expressive-engine.js',
+  '/monster-renderer-p5.js',
   '/internal-logic/human.js',
   '/internal-logic/events.js',
   '/manifest.json',

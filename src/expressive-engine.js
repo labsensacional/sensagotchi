@@ -1,7 +1,6 @@
-(function () {
-  function clamp(x, lo = 0, hi = 1) {
-    return Math.max(lo, Math.min(hi, x));
-  }
+function clamp(x, lo = 0, hi = 1) {
+  return Math.max(lo, Math.min(hi, x));
+}
 
   function inferLikingScore(state) {
     if (typeof state.liking_score === 'number') {
@@ -19,7 +18,7 @@
     return liking * 100;
   }
 
-  const DEFAULT_EXPRESSIVE_STATE = {
+const DEFAULT_EXPRESSIVE_STATE = {
     dopamine: 50,
     oxytocin: 30,
     endorphins: 20,
@@ -40,7 +39,7 @@
     ssri_level: 0,
   };
 
-  function getHealthValue(state, fallback = DEFAULT_EXPRESSIVE_STATE.health) {
+function getHealthValue(state, fallback = DEFAULT_EXPRESSIVE_STATE.health) {
     if (typeof state.health === 'number') {
       return state.health;
     }
@@ -54,7 +53,7 @@
     return fallback;
   }
 
-  const MOTION_PRESET_LIBRARY = {
+const MOTION_PRESET_LIBRARY = {
     idle: {
       label: 'idle',
       summary: 'resting micro-bob with neutral regulation',
@@ -81,7 +80,7 @@
     },
   };
 
-  const SOUND_CUE_LIBRARY = {
+const SOUND_CUE_LIBRARY = {
     stomach_rumble: {
       label: 'stomach rumble',
       family: 'body',
@@ -124,7 +123,7 @@
     },
   };
 
-  function getAnimationPreset(state) {
+function getAnimationPreset(state) {
     const likingScore = inferLikingScore(state);
     if (state.shutdown > 40) return 'barely-moving';
     if (state.sleepiness > 60) return 'droop';
@@ -134,7 +133,7 @@
     return 'idle';
   }
 
-  function getMotionProfile(state) {
+function getMotionProfile(state) {
     const preset = getAnimationPreset(state);
     const anxiety = clamp((state.anxiety ?? 0) / 100);
     const sleepiness = clamp((state.sleepiness ?? 0) / 100);
@@ -203,7 +202,7 @@
     return profile;
   }
 
-  function getVisualStateClasses(state) {
+function getVisualStateClasses(state) {
     const classes = [];
     if ((state.life_stress ?? 0) >= 60) {
       classes.push('state-stress-high');
@@ -226,7 +225,7 @@
     return classes;
   }
 
-  function getOverlayCues(state) {
+function getOverlayCues(state) {
     const worstHealth = getHealthValue(state, 100);
 
     const thoughtClouds = [
@@ -258,7 +257,7 @@
     };
   }
 
-  function getSoundCues(state) {
+function getSoundCues(state) {
     const cues = [];
     const hunger = state.hunger ?? 0;
     const sleepiness = state.sleepiness ?? 0;
@@ -352,7 +351,7 @@
       .sort((a, b) => b.priority - a.priority || b.intensity - a.intensity);
   }
 
-  function stateToExpressionParams(state) {
+function stateToExpressionParams(state) {
     const s = { ...DEFAULT_EXPRESSIVE_STATE, ...state };
 
     const da = s.dopamine / 100;
@@ -503,15 +502,32 @@
     };
   }
 
-  window.ExpressiveEngine = {
-    DEFAULT_EXPRESSIVE_STATE,
-    MOTION_PRESET_LIBRARY,
-    SOUND_CUE_LIBRARY,
-    getAnimationPreset,
-    getMotionProfile,
-    getVisualStateClasses,
-    getOverlayCues,
-    getSoundCues,
-    stateToExpressionParams,
-  };
-})();
+const ExpressiveEngine = {
+  DEFAULT_EXPRESSIVE_STATE,
+  MOTION_PRESET_LIBRARY,
+  SOUND_CUE_LIBRARY,
+  getAnimationPreset,
+  getMotionProfile,
+  getVisualStateClasses,
+  getOverlayCues,
+  getSoundCues,
+  stateToExpressionParams,
+};
+
+if (typeof window !== 'undefined') {
+  window.ExpressiveEngine = ExpressiveEngine;
+}
+
+export {
+  DEFAULT_EXPRESSIVE_STATE,
+  MOTION_PRESET_LIBRARY,
+  SOUND_CUE_LIBRARY,
+  getAnimationPreset,
+  getMotionProfile,
+  getVisualStateClasses,
+  getOverlayCues,
+  getSoundCues,
+  stateToExpressionParams,
+};
+
+export default ExpressiveEngine;
