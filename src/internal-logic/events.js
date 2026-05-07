@@ -1,7 +1,8 @@
 import { Human } from './human.js';
 
-// Module-level flag for probabilistic outcomes (tests can toggle off)
-export let ENABLE_PROBABILISTIC = true;
+// Module-level flag for probabilistic outcomes.
+// Kept only for backwards-compatible test control; the web app uses deterministic rules.
+export let ENABLE_PROBABILISTIC = false;
 
 export function setEnableProbabilistic(v) {
   ENABLE_PROBABILISTIC = v;
@@ -853,11 +854,6 @@ export function make_events() {
     h.anxiety -= 10 * eff;
     h.absorption += 20 * eff;
     h.vasopressin += 15 * eff;
-    // Probabilistic: premature orgasm at high arousal
-    if (ENABLE_PROBABILISTIC && h.arousal > 70 && Math.random() < 0.08) {
-      orgasm(h, eff);
-      _pendingNotifications.push({ text: 'unexpected release', type: 'orgasm' });
-    }
   }
 
   events['intense_stimulation'] = new Event(
@@ -880,11 +876,6 @@ export function make_events() {
     nt_boost(h, 'endorphins', 5 * eff);
     h.absorption += 15 * eff;
     h.vasopressin += 12 * eff;
-    // Probabilistic: lose control at very high arousal
-    if (ENABLE_PROBABILISTIC && h.arousal > 80 && Math.random() < 0.12) {
-      orgasm(h, eff);
-      _pendingNotifications.push({ text: "couldn't hold back", type: 'orgasm' });
-    }
   }
 
   events['edging'] = new Event(
@@ -1137,12 +1128,6 @@ export function make_events() {
     nt_boost(h, 'dopamine', 25 * eff);
     nt_boost(h, 'endorphins', 20 * eff);
     h.anxiety -= 30 * eff;
-    // Probabilistic: overwhelming experience
-    if (ENABLE_PROBABILISTIC && Math.random() < 0.05) {
-      h.anxiety += 30;
-      h.health -= 5;
-      _pendingNotifications.push({ text: 'too much, too fast', type: 'overwhelm' });
-    }
   }
 
   events['mdma'] = new Event(
@@ -1184,13 +1169,6 @@ export function make_events() {
     nt_boost(h, 'endorphins', 20 * eff);
     nt_boost(h, 'serotonin', 15 * eff);
     nt_boost(h, 'dopamine', 10 * eff);
-    // Probabilistic: bad trip
-    if (ENABLE_PROBABILISTIC && Math.random() < 0.15) {
-      h.anxiety += 40;
-      h.absorption = 10;
-      h.prefrontal += 20;
-      _pendingNotifications.push({ text: 'bad trip', type: 'bad-trip' });
-    }
   }
 
   events['mushrooms'] = new Event(
@@ -1212,13 +1190,6 @@ export function make_events() {
     nt_boost(h, 'dopamine', 15 * eff);
     nt_boost(h, 'serotonin', 10 * eff);
     nt_boost(h, 'endorphins', 15 * eff);
-    // Probabilistic: bad trip
-    if (ENABLE_PROBABILISTIC && Math.random() < 0.10) {
-      h.anxiety += 40;
-      h.absorption = 10;
-      h.prefrontal += 20;
-      _pendingNotifications.push({ text: 'bad trip', type: 'bad-trip' });
-    }
   }
 
   events['lsd'] = new Event(
@@ -1317,13 +1288,6 @@ export function make_events() {
     h.anxiety -= 25 * eff;
     h.absorption += 10 * eff;
     h.arousal += 10 * eff;
-    // Probabilistic: vomiting at high arousal
-    if (ENABLE_PROBABILISTIC && h.arousal > 60 && Math.random() < 0.10) {
-      h.hunger += 20;
-      h.energy -= 10;
-      h.digesting = 0;
-      _pendingNotifications.push({ text: 'sick...', type: 'sick' });
-    }
   }
 
   events['alcohol'] = new Event(
@@ -1371,11 +1335,6 @@ export function make_events() {
     h.arousal += 20 * eff;
     h.sleepiness -= 30;           // adenosine blockade
     h.hunger -= 18;               // appetite suppression
-    // Probabilistic: anxiety spike
-    if (ENABLE_PROBABILISTIC && Math.random() < 0.08) {
-      h.anxiety += 35;
-      _pendingNotifications.push({ text: 'heart racing', type: 'anxiety' });
-    }
   }
 
   events['cocaine'] = new Event(

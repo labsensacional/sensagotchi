@@ -1,4 +1,4 @@
-const CACHE = 'sensagotchi-v2';
+const CACHE = 'sensagotchi-v3';
 
 const PRECACHE = [
   '/',

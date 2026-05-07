@@ -15,6 +15,7 @@ let allEvents      = {};
 let currentCategory = null;    // null = show category grid
 let _pinnedActions = [];        // action ids pinned via URL ?pinned= param
 let audioStarted   = false;
+let audioStarting  = false;
 let audioMuted     = false;
 let onboardingDismissed = false;
 let currentPresetId = 'default';
@@ -767,6 +768,7 @@ function selectPreset(presetId) {
 
 function dismissOnboarding() {
     onboardingDismissed = true;
+    if (!audioStarted && !audioMuted) startAudio();
     const overlay = $('onboarding-overlay');
     if (overlay) overlay.classList.add('hidden');
 }
@@ -848,151 +850,320 @@ function init() {
 }
 
 // =============================================================
-// AUDIO — Tone.js procedural ambient pads
+// AUDIO — Tone.js procedural retro ambient score
 // =============================================================
 
-let mainSynth, sfxSynth;
-let reverbFX, distFX, lowpassFX, masterVolFX;
-let chordLoop;
-let currentMood = 'calm';
-let chordIndex  = 0;
+let bassSynth, leadSynth, accentSynth, angerBassSynth, darkChordSynth, sfxSynth;
+let reverbFX, filterFX, leadFilterFX, accentFilterFX, angerBassFilterFX, darkChordFilterFX, masterVolFX, accentGainFX, bassGainFX, leadGainFX, angerBassGainFX, darkChordGainFX;
+let bassLoop, leadLoop, accentLoop, angerBassLoop, darkChordLoop;
+let chordIndex = 0;
+let currentChordStepIndex = 0;
+let motifStepIndex = 0;
+let lastLeadNote = null;
+let audioProfile = null;
 
-// Chord progressions — long ambient pads, no arpeggios.
-// Voices are in bass/mid register to stay warm and non-intrusive.
-const PROGRESSIONS = {
-    calm: [
-        ['C3', 'G3', 'E4'],
-        ['A2', 'E3', 'C4'],
-        ['F2', 'C3', 'A3'],
-        ['G2', 'D3', 'B3'],
-    ],
-    happy: [
-        ['C3', 'E3', 'G3', 'B3'],
-        ['F3', 'A3', 'C4',     ],
-        ['G3', 'B3', 'D4',     ],
-        ['A3', 'C4', 'E4',     ],
-    ],
-    sad: [
-        ['A2', 'C3', 'E3'],
-        ['D2', 'F2', 'A2'],
-        ['E2', 'G2', 'B2'],
-        ['A2', 'E3', 'A3'],
-    ],
-    anxious: [
-        ['B2', 'D3', 'F3', 'Ab3'],
-        ['Eb3','G3', 'Bb3'      ],
-        ['C3', 'Eb3','Gb3'      ],
-        ['F#2','A2', 'C3'       ],
-    ],
-    blank: [
-        ['C2', 'G2'],
-        ['F2', 'C3'],
-    ],
+const MUSICAL_PALETTES = {
+    major: {
+        progression: [
+            { chord: ['C4', 'E4', 'G4', 'B4'], bass: 'C2', color: ['E5', 'G5', 'B5', 'D6'] },
+            { chord: ['A3', 'C4', 'E4', 'G4'], bass: 'A2', color: ['C5', 'E5', 'G5', 'A5'] },
+            { chord: ['F3', 'A3', 'C4', 'E4'], bass: 'F2', color: ['A4', 'C5', 'E5', 'G5'] },
+            { chord: ['G3', 'B3', 'D4', 'F4'], bass: 'G2', color: ['B4', 'D5', 'F5', 'A5'] },
+        ],
+        lead: ['E5', 'G5', 'A5', 'B5', 'C6', 'D6'],
+        accent: ['G4', 'A4', 'C5', 'D5', 'E5'],
+        motifs: [
+            [0, 2, 4, 2, 1, 2, 3, 4, 2, 1, 0, 1, 2, 4, 3, 1],
+            [1, 3, 4, 3, 2, 1, 2, 4, 5, 4, 2, 1, 0, 2, 1, 0],
+            [2, 4, 5, 4, 2, 3, 4, 2, 1, 0, 1, 2, 4, 3, 2, 0],
+        ],
+    },
+    minor: {
+        progression: [
+            { chord: ['A3', 'C4', 'E4', 'G4'], bass: 'A2', color: ['C5', 'E5', 'G5', 'A5'] },
+            { chord: ['F3', 'A3', 'C4', 'E4'], bass: 'F2', color: ['A4', 'C5', 'E5', 'G5'] },
+            { chord: ['D3', 'F3', 'A3', 'C4'], bass: 'D2', color: ['F4', 'A4', 'C5', 'E5'] },
+            { chord: ['E3', 'G3', 'B3', 'D4'], bass: 'E2', color: ['G4', 'B4', 'D5', 'F5'] },
+        ],
+        lead: ['A4', 'C5', 'D5', 'E5', 'G5', 'A5'],
+        accent: ['E4', 'G4', 'A4', 'C5', 'D5'],
+        motifs: [
+            [0, 2, 3, 2, 1, 0, 1, 2, 4, 3, 2, 1, 0, 1, 2, 0],
+            [1, 2, 4, 2, 3, 2, 1, 0, 2, 3, 4, 3, 1, 0, 1, 0],
+            [0, 1, 3, 4, 3, 1, 2, 3, 4, 2, 1, 0, 1, 3, 2, 0],
+        ],
+    },
 };
 
-// Choose mood from state
-function moodFromState(s) {
-    if (s.shutdown     > 40)               return 'blank';
-    if (s.anxiety      > 65)               return 'anxious';
-    if (s.liking_score > 55 && s.arousal > 40) return 'happy';
-    if (s.liking_score < 22)              return 'sad';
-    return 'calm';
+function clamp01(value) {
+    return Math.max(0, Math.min(1, value));
+}
+
+function lerp(min, max, amount) {
+    return min + (max - min) * amount;
+}
+
+function getAudioProfile(state) {
+    const arousal = clamp01((state.arousal ?? 0) / 100);
+    const sleepiness = clamp01((state.sleepiness ?? 0) / 100);
+    const anxiety = clamp01((state.anxiety ?? 0) / 100);
+    const serotonin = clamp01((state.serotonin ?? 0) / 100);
+    const oxytocin = clamp01((state.oxytocin ?? 0) / 100);
+    const vasopressin = clamp01((state.vasopressin ?? 0) / 100);
+    const shutdown = clamp01((state.shutdown ?? 0) / 100);
+    const energy = clamp01((state.energy ?? 100) / 100);
+
+    const threatLoad = clamp01(anxiety * 0.72 + vasopressin * 0.40 + shutdown * 0.22 - serotonin * 0.18);
+    const soothingLoad = clamp01(serotonin * 0.72 + oxytocin * 0.26 + energy * 0.08 - anxiety * 0.30 - vasopressin * 0.10);
+    const mode = threatLoad > soothingLoad ? 'minor' : 'major';
+    const anger = clamp01(vasopressin * 0.62 + anxiety * 0.24 + arousal * 0.18 - serotonin * 0.12);
+    const intensity = clamp01(arousal * 0.46 + anxiety * 0.34 + vasopressin * 0.24 + energy * 0.10 - sleepiness * 0.42 - shutdown * 0.34);
+    const tempoDrive = clamp01(0.22 + arousal * 0.76 + anxiety * 0.30 + vasopressin * 0.16 + energy * 0.10 - sleepiness * 0.95 - shutdown * 0.58);
+    const calmFilter = clamp01(serotonin * 0.48 + oxytocin * 0.18 + sleepiness * 0.12 - intensity * 0.42);
+    const openness = clamp01(intensity * 0.82 + serotonin * 0.10 - sleepiness * 0.35 - shutdown * 0.25);
+    const sleepyAmount = clamp01(sleepiness * 0.82 + shutdown * 0.38 - energy * 0.12);
+
+    return {
+        mode,
+        anger,
+        intensity,
+        bpm: lerp(58, 122, tempoDrive),
+        filterHz: sleepyAmount >= 0.6 ? lerp(320, 1600, 1 - sleepyAmount) : lerp(1800, 9200, openness),
+        leadFilterHz: sleepyAmount >= 0.6 ? lerp(700, 2600, 1 - sleepyAmount) : lerp(2000, 10400, clamp01(openness * 0.9 + anxiety * 0.14)),
+        accentFilterHz: sleepyAmount >= 0.6 ? lerp(900, 3400, 1 - sleepyAmount) : lerp(2200, 12400, clamp01(openness * 0.95 + vasopressin * 0.18)),
+        angerBassFilterHz: lerp(180, 1200, clamp01(anger * 0.72 + intensity * 0.18)),
+        darkChordFilterHz: lerp(900, 4200, clamp01(anxiety * 0.82 + anger * 0.28 - sleepyAmount * 0.40)),
+        reverbWet: lerp(0.18, 0.56, clamp01(serotonin * 0.10 + sleepiness * 0.30 + shutdown * 0.35 + anxiety * 0.08)),
+        masterDb: lerp(-12.5, -2.5, clamp01(intensity * 0.82 + anger * 0.24)),
+        bassDb: lerp(-15, -6.5, clamp01(intensity * 0.82 + arousal * 0.20)),
+        leadDb: lerp(-13.5, -4.5, clamp01(intensity * 0.76 + serotonin * 0.10 - sleepiness * 0.12)),
+        accentDb: lerp(-32, -9.5, clamp01(intensity * 0.78 + vasopressin * 0.20)),
+        angerBassDb: lerp(-34, -7.5, clamp01(anger * 0.88 + intensity * 0.18)),
+        darkChordDb: lerp(-36, -10.5, clamp01(anxiety * 0.95 + anger * 0.18)),
+        leadDensity: clamp01(0.34 + intensity * 0.58 + serotonin * 0.08 + anxiety * 0.10 - sleepiness * 0.10),
+        accentDensity: clamp01((intensity - 0.20) * 1.2 + anxiety * 0.16 + vasopressin * 0.14 - sleepiness * 0.24),
+        bassDensity: clamp01(0.28 + intensity * 0.58 - sleepiness * 0.22),
+        angerBassDensity: clamp01((anger - 0.34) * 1.3 + intensity * 0.20),
+        darkChordDensity: clamp01((anxiety - 0.42) * 1.6 + anger * 0.20),
+        insistence: clamp01(anxiety * 0.78 + anger * 0.22 + arousal * 0.08),
+        leadSubdivision: anxiety >= 0.72 || intensity >= 0.80 ? '16n' : intensity >= 0.48 ? '8n' : '4n',
+        accentSubdivision: intensity >= 0.65 ? '8n' : '4n',
+        accentEnabled: intensity >= 0.34 && shutdown < 0.72,
+        angerBassEnabled: anger >= 0.46 && shutdown < 0.76,
+        darkChordEnabled: anxiety >= 0.54 && shutdown < 0.70,
+        sleepy: sleepiness >= 0.68 || shutdown >= 0.48,
+    };
+}
+
+function getCurrentChordStep() {
+    const profile = audioProfile || getAudioProfile(currentState || {});
+    const palette = MUSICAL_PALETTES[profile.mode];
+    return palette.progression[currentChordStepIndex % palette.progression.length];
+}
+
+function chooseNote(notes, bias = 0) {
+    if (!notes.length) return null;
+    const idx = Math.floor(Math.random() * notes.length);
+    const weightedIdx = Math.max(0, Math.min(notes.length - 1, idx + bias));
+    return notes[weightedIdx];
+}
+
+function getMotifNote(profile, step) {
+    const palette = MUSICAL_PALETTES[profile.mode];
+    const motifBank = palette.motifs;
+    const motif = motifBank[currentChordStepIndex % motifBank.length];
+    const slot = motifStepIndex % motif.length;
+    const degree = motif[slot];
+    motifStepIndex += 1;
+    const useChordTone = slot % 4 !== 3;
+    const notePool = useChordTone ? step.color : palette.lead;
+    const note = notePool[Math.max(0, Math.min(notePool.length - 1, degree))] || chooseNote(notePool);
+    lastLeadNote = note;
+    return note;
 }
 
 async function startAudio() {
-    if (audioStarted) return;
+    if (audioStarted || audioStarting) return;
+    audioStarting = true;
     try {
         await Tone.start();
+        reverbFX = new Tone.Reverb({ decay: 4.2, wet: 0.28, preDelay: 0.015 });
+        filterFX = new Tone.Filter({ frequency: 4200, type: 'lowpass', rolloff: -24 });
+        leadFilterFX = new Tone.Filter({ frequency: 5200, type: 'lowpass', rolloff: -24 });
+        accentFilterFX = new Tone.Filter({ frequency: 6200, type: 'lowpass', rolloff: -24 });
+        angerBassFilterFX = new Tone.Filter({ frequency: 380, type: 'lowpass', rolloff: -24 });
+        darkChordFilterFX = new Tone.Filter({ frequency: 2200, type: 'lowpass', rolloff: -24 });
+        masterVolFX = new Tone.Volume(-8.5);
+        bassGainFX = new Tone.Volume(-12);
+        leadGainFX = new Tone.Volume(-20);
+        accentGainFX = new Tone.Volume(-24);
+        angerBassGainFX = new Tone.Volume(-30);
+        darkChordGainFX = new Tone.Volume(-34);
+
+        await reverbFX.generate();
+
+        bassSynth = new Tone.MonoSynth({
+            oscillator: { type: 'square' },
+            filter: { Q: 1, type: 'lowpass', rolloff: -24 },
+            envelope: { attack: 0.005, decay: 0.12, sustain: 0.28, release: 0.12 },
+            filterEnvelope: { attack: 0.001, decay: 0.08, sustain: 0.05, release: 0.08, baseFrequency: 120, octaves: 1.8 },
+            volume: -5,
+        });
+        leadSynth = new Tone.Synth({
+            oscillator: { type: 'pulse', width: 0.25 },
+            envelope: { attack: 0.001, decay: 0.05, sustain: 0.03, release: 0.06 },
+            volume: -5,
+        });
+        accentSynth = new Tone.Synth({
+            oscillator: { type: 'square' },
+            envelope: { attack: 0.001, decay: 0.04, sustain: 0.0, release: 0.05 },
+            volume: -12,
+        });
+        angerBassSynth = new Tone.MonoSynth({
+            oscillator: { type: 'square' },
+            filter: { Q: 1.4, type: 'lowpass', rolloff: -24 },
+            envelope: { attack: 0.001, decay: 0.09, sustain: 0.24, release: 0.08 },
+            filterEnvelope: { attack: 0.001, decay: 0.08, sustain: 0.0, release: 0.06, baseFrequency: 90, octaves: 1.0 },
+            volume: -6,
+        });
+        darkChordSynth = new Tone.PolySynth(Tone.Synth, {
+            oscillator: { type: 'pulse', width: 0.125 },
+            envelope: { attack: 0.003, decay: 0.08, sustain: 0.10, release: 0.12 },
+            volume: -8,
+        });
+
+        bassSynth.chain(bassGainFX, filterFX, masterVolFX, Tone.Destination);
+        leadSynth.chain(leadGainFX, leadFilterFX, reverbFX, masterVolFX, Tone.Destination);
+        accentSynth.chain(accentGainFX, accentFilterFX, reverbFX, masterVolFX, Tone.Destination);
+        angerBassSynth.chain(angerBassGainFX, angerBassFilterFX, masterVolFX, Tone.Destination);
+        darkChordSynth.chain(darkChordGainFX, darkChordFilterFX, reverbFX, masterVolFX, Tone.Destination);
+
+        sfxSynth = new Tone.Synth({
+            oscillator: { type: 'square' },
+            envelope: { attack: 0.001, decay: 0.08, sustain: 0.0, release: 0.06 },
+            volume: -14,
+        });
+        sfxSynth.chain(new Tone.Volume(0), Tone.Destination);
+
+        audioProfile = getAudioProfile(currentState || _engine?.getState?.() || {});
+        Tone.Transport.bpm.value = audioProfile.bpm;
+        currentChordStepIndex = 0;
+        chordIndex = 0;
+        motifStepIndex = 0;
+        lastLeadNote = null;
+
+        bassLoop = new Tone.Loop((time) => {
+            const profile = audioProfile || getAudioProfile(currentState || {});
+            const palette = MUSICAL_PALETTES[profile.mode];
+            currentChordStepIndex = chordIndex % palette.progression.length;
+            const step = getCurrentChordStep();
+            if (Math.random() > profile.bassDensity) return;
+            const alternate = Math.random() < clamp01(0.18 + profile.intensity * 0.42);
+            const note = alternate ? Tone.Frequency(step.bass).transpose(7).toNote() : step.bass;
+            const bassDur = profile.intensity >= 0.62 ? '8n' : profile.sleepy ? '2n' : '4n';
+            bassSynth.triggerAttackRelease(note, bassDur, time, 0.82);
+            chordIndex = (currentChordStepIndex + 1) % palette.progression.length;
+            if (chordIndex === 0) {
+                motifStepIndex = 0;
+            }
+        }, '2n');
+
+        leadLoop = new Tone.Loop((time) => {
+            const profile = audioProfile || getAudioProfile(currentState || {});
+            if (Math.random() > profile.leadDensity) return;
+            const step = getCurrentChordStep();
+            const shouldRepeat = profile.insistence >= 0.55 && lastLeadNote && Math.random() < profile.insistence * 0.42;
+            const note = shouldRepeat
+                ? lastLeadNote
+                : getMotifNote(profile, step);
+            if (!note) return;
+            const velocity = profile.mode === 'minor'
+                ? 0.58 + profile.insistence * 0.12
+                : 0.52 + profile.insistence * 0.08;
+            const leadDur = profile.intensity >= 0.7 ? '16n' : '8n';
+            leadSynth.triggerAttackRelease(note, leadDur, time, velocity);
+        }, '8n');
+
+        accentLoop = new Tone.Loop((time) => {
+            const profile = audioProfile || getAudioProfile(currentState || {});
+            if (!profile.accentEnabled || Math.random() > profile.accentDensity) return;
+            const palette = MUSICAL_PALETTES[profile.mode];
+            const step = getCurrentChordStep();
+            const note = Math.random() < 0.6 ? chooseNote(step.color, -1) : chooseNote(palette.accent);
+            if (!note) return;
+            accentSynth.triggerAttackRelease(note, '16n', time, 0.30 + profile.accentDensity * 0.18);
+        }, '16n');
+
+        angerBassLoop = new Tone.Loop((time) => {
+            const profile = audioProfile || getAudioProfile(currentState || {});
+            if (!profile.angerBassEnabled || Math.random() > profile.angerBassDensity) return;
+            const step = getCurrentChordStep();
+            const note = Tone.Frequency(step.bass).transpose(-12).toNote();
+            angerBassSynth.triggerAttackRelease(note, '8n', time, 0.72 + profile.anger * 0.16);
+        }, '4n');
+
+        darkChordLoop = new Tone.Loop((time) => {
+            const profile = audioProfile || getAudioProfile(currentState || {});
+            if (!profile.darkChordEnabled || Math.random() > profile.darkChordDensity) return;
+            const step = getCurrentChordStep();
+            const darkChord = profile.mode === 'minor'
+                ? [step.chord[0], step.chord[1], step.chord[3] || step.chord[2]]
+                : [
+                    Tone.Frequency(step.chord[0]).transpose(-3).toNote(),
+                    Tone.Frequency(step.chord[1]).transpose(-2).toNote(),
+                    Tone.Frequency(step.chord[2]).transpose(-2).toNote(),
+                ];
+            darkChordSynth.triggerAttackRelease(darkChord, '8n', time, 0.28 + profile.darkChordDensity * 0.18);
+        }, '8n');
+
+        bassLoop.start(0);
+        leadLoop.start('0:2');
+        accentLoop.start('0:0:2');
+        angerBassLoop.start('0:1');
+        darkChordLoop.start('0:0:3');
+        Tone.Transport.start();
+
+        audioStarted = true;
+        $('audio-btn').textContent = '🔊';
+        if (currentState) updateAudio(currentState);
     } catch (e) {
         console.warn('Audio start failed:', e);
-        return;
+    } finally {
+        audioStarting = false;
     }
-
-    // Build effects chain: synth → dist → lowpass → reverb → masterVol → output
-    reverbFX   = new Tone.Reverb({ decay: 9, wet: 0.45, preDelay: 0.08 });
-    distFX     = new Tone.Distortion(0);
-    lowpassFX  = new Tone.Filter({ frequency: 6000, type: 'lowpass', rolloff: -12 });
-    masterVolFX= new Tone.Volume(-15);
-
-    await reverbFX.generate();
-
-    // Main ambient pad synth — very slow attack/release for a pad feel
-    mainSynth = new Tone.PolySynth(Tone.Synth, {
-        oscillator: { type: 'sine' },
-        envelope: {
-            attack:  3.5,
-            decay:   1.0,
-            sustain: 0.82,
-            release: 7.0,
-        },
-        volume: -5,
-    });
-
-    mainSynth.chain(distFX, lowpassFX, reverbFX, masterVolFX, Tone.Destination);
-
-    // SFX synth — short, separate chain so it bypasses pad effects
-    sfxSynth = new Tone.Synth({
-        oscillator: { type: 'triangle' },
-        envelope: { attack: 0.02, decay: 0.25, sustain: 0.0, release: 0.4 },
-        volume: -16,
-    });
-    sfxSynth.chain(new Tone.Volume(0), Tone.Destination);
-
-    Tone.Transport.bpm.value = 60;
-
-    // Loop fires every 4 measures — musical timing scales with BPM
-    chordLoop = new Tone.Loop((time) => {
-        const prog  = PROGRESSIONS[currentMood];
-        const chord = prog[chordIndex % prog.length];
-        // Hold chord for 3m (slightly shorter than loop to let it breathe)
-        const dur = currentMood === 'anxious' ? '1m' : '3m';
-        mainSynth.triggerAttackRelease(chord, dur, time);
-        chordIndex++;
-    }, '4m');
-
-    chordLoop.start(0);
-    Tone.Transport.start();
-
-    audioStarted = true;
-    $('audio-btn').textContent = '🔊';
 }
 
-// Update audio parameters in real time based on current state
-function updateAudio(s) {
-    if (!audioStarted || !mainSynth) return;
+function updateAudio(state) {
+    if (!audioStarted || !leadSynth) return;
 
-    const mood = moodFromState(s);
-    if (mood !== currentMood) {
-        currentMood = mood;
-        chordIndex  = 0;   // reset progression on mood change
+    const prevMode = audioProfile?.mode;
+    audioProfile = getAudioProfile(state);
+    if (prevMode && prevMode !== audioProfile.mode) {
+        chordIndex = 0;
+        currentChordStepIndex = 0;
+        motifStepIndex = 0;
+        lastLeadNote = null;
     }
+    Tone.Transport.bpm.rampTo(audioProfile.bpm, 6);
+    filterFX.frequency.rampTo(audioProfile.filterHz, 4);
+    leadFilterFX.frequency.rampTo(audioProfile.leadFilterHz, 3);
+    accentFilterFX.frequency.rampTo(audioProfile.accentFilterHz, 3);
+    angerBassFilterFX.frequency.rampTo(audioProfile.angerBassFilterHz, 2);
+    darkChordFilterFX.frequency.rampTo(audioProfile.darkChordFilterHz, 2);
+    reverbFX.wet.rampTo(audioProfile.reverbWet, 5);
+    masterVolFX.volume.rampTo(audioProfile.masterDb, 3);
+    bassGainFX.volume.rampTo(audioProfile.bassDb, 3);
+    leadGainFX.volume.rampTo(audioProfile.leadDb, 3);
+    accentGainFX.volume.rampTo(audioProfile.accentDb, 3);
+    angerBassGainFX.volume.rampTo(audioProfile.angerBassDb, 2);
+    darkChordGainFX.volume.rampTo(audioProfile.darkChordDb, 2);
 
-    // BPM: calm=58, tired=44, anxious=78
-    const targetBPM = s.anxiety > 65   ? 78
-                    : s.sleepiness > 60 ? 44
-                    : 58;
-    Tone.Transport.bpm.rampTo(targetBPM, 8);
-
-    // Low-pass filter: wide when alert, narrows when tired/shutdown
-    const filterHz = s.shutdown > 40   ? 500
-                   : s.sleepiness > 60 ? 1800
-                   : 7000;
-    lowpassFX.frequency.rampTo(filterHz, 4);
-
-    // Distortion: increases with anxiety
-    distFX.distortion = Math.min(0.55, (s.anxiety / 100) * 0.65);
-
-    // Reverb wetness: more space when dissociated/sad, less when happy
-    const wet = s.shutdown > 40  ? 0.88
-              : s.liking_score < 22 ? 0.60
-              : 0.42;
-    reverbFX.wet.rampTo(wet, 5);
-
-    // Master volume: quieter in shutdown, slightly louder when anxious
-    const vol = s.shutdown > 40 ? -26
-              : s.anxiety  > 65 ? -10
-              : -15;
-    masterVolFX.volume.rampTo(vol, 3);
+    if (leadLoop) {
+        leadLoop.interval = audioProfile.leadSubdivision;
+    }
+    if (accentLoop) {
+        accentLoop.interval = audioProfile.accentSubdivision;
+    }
 }
 
 // SFX: one short tone per action category
